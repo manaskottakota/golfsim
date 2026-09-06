@@ -24,6 +24,9 @@ enum MotionCaptureError: LocalizedError {
 @MainActor
 @Observable
 final class MotionCaptureService {
+    static let ringBufferCapacity = 1200
+    static let postTriggerCaptureSeconds: TimeInterval = 6
+
     private(set) var isStreaming = false
     private(set) var isRecording = false
     private(set) var latestSample: MotionSample?
@@ -31,8 +34,18 @@ final class MotionCaptureService {
     private(set) var recordedSamples: [MotionSample] = []
     private(set) var lastErrorMessage: String?
 
+    private(set) var swingPhase: SwingCapturePhase = .idle
+    private(set) var latestSwing: SwingRecording?
+    private(set) var ringBufferSampleCount = 0
+
     /// Target interval passed to Core Motion (actual rate is device-dependent).
     var preferredUpdateInterval: TimeInterval = 1.0 / 100.0
+
+    private var ringBuffer = MotionRingBuffer(capacity: MotionCaptureService.ringBufferCapacity)
+    private var activeSwingSamples: [MotionSample] = []
+    private var pendingSwingClub: GolfClub?
+    private var pendingSwingTriggerDate = Date()
+    private var pendingSwingTriggerMotionTime: TimeInterval = 0
 
     private let motionManager = CMMotionManager()
     private let motionQueue: OperationQueue = {
@@ -88,6 +101,9 @@ final class MotionCaptureService {
         motionManager.stopDeviceMotionUpdates()
         isStreaming = false
         isRecording = false
+        cancelSwingCapture()
+        ringBuffer.removeAll()
+        ringBufferSampleCount = 0
     }
 
     func startRecording() {
@@ -102,6 +118,57 @@ final class MotionCaptureService {
 
     func clearRecording() {
         recordedSamples.removeAll(keepingCapacity: false)
+    }
+
+    func triggerSwingCapture(club: GolfClub) {
+        guard isStreaming, case .idle = swingPhase else { return }
+
+        let preTrigger = ringBuffer.chronologicalSnapshot()
+        let triggerSample = latestSample
+        let triggerMotionTime = triggerSample?.motionTimestamp ?? 0
+
+        activeSwingSamples = preTrigger
+        if let triggerSample, !activeSwingSamples.contains(where: { $0.id == triggerSample.id }) {
+            activeSwingSamples.append(triggerSample)
+        }
+
+        pendingSwingClub = club
+        pendingSwingTriggerDate = Date()
+        pendingSwingTriggerMotionTime = triggerMotionTime
+        let deadline = triggerMotionTime + Self.postTriggerCaptureSeconds
+        swingPhase = .capturing(postTriggerDeadline: deadline)
+    }
+
+    func cancelSwingCapture() {
+        activeSwingSamples.removeAll(keepingCapacity: false)
+        pendingSwingClub = nil
+        swingPhase = .idle
+    }
+
+    func clearLatestSwing() {
+        latestSwing = nil
+    }
+
+    func makeSwingExportURL(from recording: SwingRecording) throws -> URL {
+        let payload = SwingRecordingExport(
+            exportedAt: Date(),
+            club: recording.club,
+            sampleCount: recording.samples.count,
+            durationSeconds: recording.durationSeconds,
+            samples: recording.samples
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(payload)
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("golfsim-swing-\(recording.club.shortName)-\(stamp).json")
+        try data.write(to: url, options: .atomic)
+        return url
     }
 
     func makeRecordingExportURL() throws -> URL {
@@ -177,6 +244,39 @@ final class MotionCaptureService {
         if isRecording {
             recordedSamples.append(sample)
         }
+
+        if case .idle = swingPhase {
+            ringBuffer.append(sample)
+            ringBufferSampleCount = ringBuffer.count
+        }
+
+        if case .capturing(let deadline) = swingPhase {
+            if !activeSwingSamples.contains(where: { $0.id == sample.id }) {
+                activeSwingSamples.append(sample)
+            }
+            if sample.motionTimestamp >= deadline {
+                completeSwingCapture()
+            }
+        }
+    }
+
+    private func completeSwingCapture() {
+        guard let club = pendingSwingClub else {
+            cancelSwingCapture()
+            return
+        }
+
+        latestSwing = SwingRecording(
+            id: UUID(),
+            club: club,
+            triggeredAt: pendingSwingTriggerDate,
+            triggerMotionTimestamp: pendingSwingTriggerMotionTime,
+            samples: activeSwingSamples
+        )
+
+        activeSwingSamples.removeAll(keepingCapacity: false)
+        pendingSwingClub = nil
+        swingPhase = .idle
     }
 }
 
