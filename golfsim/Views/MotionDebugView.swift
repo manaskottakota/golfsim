@@ -7,10 +7,12 @@ import SwiftUI
 
 /// Milestone 1: live Core Motion readout and capture validation on device.
 struct MotionDebugView: View {
-    @State private var motion = MotionCaptureService()
+    @Environment(AppState.self) private var appState
     @State private var exportURL: URL?
     @State private var showShareSheet = false
     @State private var alertMessage: String?
+
+    private var motion: MotionCaptureService { appState.motion }
 
     var body: some View {
         NavigationStack {
@@ -287,16 +289,7 @@ struct MotionDebugView: View {
     }
 }
 
-private struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
 #Preview {
     MotionDebugView()
+        .environment(AppState())
 }
