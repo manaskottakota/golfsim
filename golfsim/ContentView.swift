@@ -1,4 +1,4 @@
-the //
+//
 //  ContentView.swift
 //  golfsim
 //
