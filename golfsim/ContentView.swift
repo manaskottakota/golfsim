@@ -9,10 +9,11 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        MotionDebugView()
+        MainTabView()
     }
 }
 
 #Preview {
     ContentView()
+        .environment(AppState())
 }
