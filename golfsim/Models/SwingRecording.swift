@@ -29,6 +29,10 @@ struct SwingRecording: Identifiable, Codable, Sendable {
 struct SwingRecordingExport: Codable {
     var exportedAt: Date
     var club: GolfClub
+    var triggeredAt: Date
+    var triggerMotionTimestamp: TimeInterval
+    var preTriggerSampleCount: Int
+    var postTriggerSampleCount: Int
     var sampleCount: Int
     var durationSeconds: TimeInterval
     var samples: [MotionSample]
