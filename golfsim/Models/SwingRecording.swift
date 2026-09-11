@@ -24,6 +24,12 @@ struct SwingRecording: Identifiable, Codable, Sendable {
         else { return 0 }
         return max(0, last.motionTimestamp - first.motionTimestamp)
     }
+
+    var prePostTriggerSampleCounts: (preTrigger: Int, postTrigger: Int) {
+        guard !samples.isEmpty else { return (0, 0) }
+        let postIndex = samples.firstIndex { $0.motionTimestamp >= triggerMotionTimestamp } ?? samples.count
+        return (postIndex, samples.count - postIndex)
+    }
 }
 
 struct SwingRecordingExport: Codable {
