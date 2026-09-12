@@ -150,9 +150,14 @@ final class MotionCaptureService {
     }
 
     func makeSwingExportURL(from recording: SwingRecording) throws -> URL {
+        let split = recording.prePostTriggerSampleCounts
         let payload = SwingRecordingExport(
             exportedAt: Date(),
             club: recording.club,
+            triggeredAt: recording.triggeredAt,
+            triggerMotionTimestamp: recording.triggerMotionTimestamp,
+            preTriggerSampleCount: split.preTrigger,
+            postTriggerSampleCount: split.postTrigger,
             sampleCount: recording.samples.count,
             durationSeconds: recording.durationSeconds,
             samples: recording.samples
