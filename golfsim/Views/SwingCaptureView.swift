@@ -78,6 +78,12 @@ struct SwingCaptureView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
+            SwingCaptureProgressView(
+                phase: motion.swingPhase,
+                latestMotionTimestamp: motion.latestSample?.motionTimestamp,
+                postTriggerDuration: MotionCaptureService.postTriggerCaptureSeconds
+            )
+
             Button(action: triggerSwing) {
                 Text(isCapturingSwing ? "Capturing…" : "Start Swing")
                     .font(.title3.weight(.bold))
