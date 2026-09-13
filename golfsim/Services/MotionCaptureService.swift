@@ -6,6 +6,7 @@
 import CoreMotion
 import Foundation
 import Observation
+import UIKit
 
 enum MotionCaptureError: LocalizedError {
     case deviceMotionUnavailable
@@ -278,6 +279,8 @@ final class MotionCaptureService {
             triggerMotionTimestamp: pendingSwingTriggerMotionTime,
             samples: activeSwingSamples
         )
+
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
 
         activeSwingSamples.removeAll(keepingCapacity: false)
         pendingSwingClub = nil
