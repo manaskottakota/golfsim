@@ -64,6 +64,10 @@ final class MotionCaptureService {
     private var minInterval: TimeInterval = .greatestFiniteMagnitude
     private var maxInterval: TimeInterval = 0
 
+    func noteStreamingError(_ error: Error) {
+        lastErrorMessage = error.localizedDescription
+    }
+
     func startStreaming() throws {
         guard motionManager.isDeviceMotionAvailable else {
             throw MotionCaptureError.deviceMotionUnavailable
