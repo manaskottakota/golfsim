@@ -34,9 +34,13 @@ struct SwingCaptureView: View {
             .navigationTitle("Swing")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
-                beginSession()
+                appState.setSwingSessionActive(true)
+                UIApplication.shared.isIdleTimerDisabled = true
+                configureVolumeTrigger()
             }
             .onDisappear {
+                appState.setSwingSessionActive(false)
+                UIApplication.shared.isIdleTimerDisabled = appState.motion.isStreaming
                 volumeTrigger.disable()
             }
             .sheet(isPresented: $showShareSheet) {
@@ -110,6 +114,8 @@ struct SwingCaptureView: View {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                 summaryRow("Club", value: swing.club.displayName)
                 summaryRow("Samples", value: "\(swing.samples.count)")
+                summaryRow("Pre-trigger", value: "\(swing.prePostTriggerSampleCounts.preTrigger)")
+                summaryRow("Post-trigger", value: "\(swing.prePostTriggerSampleCounts.postTrigger)")
                 summaryRow("Duration", value: String(format: "%.2f s", swing.durationSeconds))
             }
             HStack(spacing: 12) {
@@ -150,16 +156,7 @@ struct SwingCaptureView: View {
         return false
     }
 
-    private func beginSession() {
-        if !motion.isStreaming {
-            do {
-                try motion.startStreaming()
-                UIApplication.shared.isIdleTimerDisabled = true
-            } catch {
-                alertMessage = error.localizedDescription
-            }
-        }
-
+    private func configureVolumeTrigger() {
         volumeTrigger.onVolumeUp = { [motion, clubSelection] in
             motion.triggerSwingCapture(club: clubSelection.selectedClub)
         }
