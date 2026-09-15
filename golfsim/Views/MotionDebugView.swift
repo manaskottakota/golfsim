@@ -57,10 +57,16 @@ struct MotionDebugView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button(motion.isStreaming ? "Stop" : "Stream") {
-                toggleStreaming()
+            if motion.isStreaming, !appState.motionStreaming.isSensorLabStreamingRequested {
+                Text("Live")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            } else {
+                Button(appState.motionStreaming.isSensorLabStreamingRequested ? "Stop" : "Stream") {
+                    toggleStreaming()
+                }
+                .fontWeight(.semibold)
             }
-            .fontWeight(.semibold)
         }
     }
 
@@ -251,17 +257,12 @@ struct MotionDebugView: View {
     }
 
     private func toggleStreaming() {
-        if motion.isStreaming {
-            motion.stopStreaming()
-            UIApplication.shared.isIdleTimerDisabled = false
-        } else {
-            do {
-                try motion.startStreaming()
-                UIApplication.shared.isIdleTimerDisabled = true
-            } catch {
-                alertMessage = error.localizedDescription
-            }
+        let shouldStream = !appState.motionStreaming.isSensorLabStreamingRequested
+        appState.setSensorLabStreamingRequested(shouldStream)
+        if let message = motion.lastErrorMessage, shouldStream {
+            alertMessage = message
         }
+        UIApplication.shared.isIdleTimerDisabled = motion.isStreaming
     }
 
     private func exportRecording() {
