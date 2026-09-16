@@ -66,9 +66,8 @@ final class VolumeSwingTrigger {
         window.addSubview(view)
     }
 
-    private func handleVolumeChange(_ newValue: NSNumber?) {
-        guard isEnabled, !isAdjustingProgrammatically, let newValue else { return }
-        let volume = newValue.floatValue
+    private func handleVolumeChange(_ newValue: Float?) {
+        guard isEnabled, !isAdjustingProgrammatically, let volume = newValue else { return }
 
         if volume > lastVolume {
             onVolumeUp?()
