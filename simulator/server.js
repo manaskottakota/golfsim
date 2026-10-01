@@ -58,6 +58,16 @@ function serveStatic(request, response) {
 }
 
 const server = http.createServer(async (request, response) => {
+  if (request.url.startsWith("/api/qr.png")) {
+    try {
+      const png = await QRCode.toBuffer(pairingURL(), { errorCorrectionLevel: "M", margin: 2, width: 360, type: "png" });
+      response.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
+      response.end(png);
+    } catch (error) {
+      response.writeHead(500).end("QR generation failed");
+    }
+    return;
+  }
   if (request.url === "/api/session") {
     const pairURL = pairingURL();
     const qrDataURL = await QRCode.toDataURL(pairURL, { errorCorrectionLevel: "M", margin: 2, width: 360 });
