@@ -10,9 +10,22 @@
 		1BC58B07304837B40003F260 /* golfsim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = golfsim.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1BB9DC02306EAB5D00289A4D /* Exceptions for "golfsim" folder in "golfsim" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1BC58B06304837B40003F260 /* golfsim */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1BC58B09304837B40003F260 /* golfsim */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1BB9DC02306EAB5D00289A4D /* Exceptions for "golfsim" folder in "golfsim" target */,
+			);
 			path = golfsim;
 			sourceTree = "<group>";
 		};
