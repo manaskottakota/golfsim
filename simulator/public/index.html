@@ -1,123 +1,67 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>golfsim — Driving Range</title>
-    <link rel="stylesheet" href="/styles.css">
-  </head>
-  <body>
-    <main class="simulator-shell">
-      <header class="topbar">
-        <div class="brand">golfsim</div>
-        <div class="controller-status">
-          <span id="status-light" class="status-light waiting"></span>
-          <div><strong id="status">Waiting for iPhone</strong><small>iPhone Controller</small></div>
-        </div>
-        <button id="disconnect" class="disconnect-button" hidden>Disconnect</button>
-      </header>
-
-      <div class="simulator-layout">
-        <aside class="club-rail panel">
-          <div class="section-label">Club</div>
-          <ul id="club-list" aria-label="Club selected on iPhone">
-            <li data-club="driver">Driver</li>
-            <li data-club="3_wood">3 Wood</li>
-            <li data-club="5_wood">5 Wood</li>
-            <li data-club="hybrid">Hybrid</li>
-            <li data-club="4_iron">4 Iron</li>
-            <li data-club="5_iron">5 Iron</li>
-            <li data-club="6_iron">6 Iron</li>
-            <li data-club="7_iron">7 Iron</li>
-            <li data-club="8_iron">8 Iron</li>
-            <li data-club="9_iron">9 Iron</li>
-            <li data-club="pitching_wedge">PW</li>
-            <li data-club="gap_wedge">GW</li>
-            <li data-club="sand_wedge">SW</li>
-            <li data-club="lob_wedge">LW</li>
-            <li data-club="putter">Putter</li>
-          </ul>
-          <p class="authority-note">Selected on iPhone</p>
-        </aside>
-
-        <section class="range-viewport" aria-label="Driving range">
-          <div class="sky">
-            <div class="sun"></div>
-            <div class="cloud cloud-one"></div>
-            <div class="cloud cloud-two"></div>
-            <div class="ridge ridge-back"></div>
-            <div class="ridge ridge-front"></div>
-            <div class="tree-line"></div>
-          </div>
-          <div class="range-ground">
-            <div class="fairway-stripe stripe-one"></div>
-            <div class="fairway-stripe stripe-two"></div>
-            <div class="fairway-stripe stripe-three"></div>
-            <div class="target-line"></div>
-            <div class="distance-marker marker-250"><span>250</span></div>
-            <div class="distance-marker marker-200"><span>200</span></div>
-            <div class="distance-marker marker-150"><span>150</span></div>
-            <div class="distance-marker marker-100"><span>100</span></div>
-            <div class="distance-marker marker-50"><span>50</span></div>
-          </div>
-          <div class="tee-deck">
-            <div class="address-line"></div>
-            <div class="tee"></div>
-            <div class="ball"></div>
-          </div>
-
-          <section id="pairing-panel" class="pairing-panel panel">
-            <div class="pairing-copy">
-              <span class="section-label">Connect controller</span>
-              <h1>Pair your iPhone</h1>
-              <p>In the golfsim app, open <strong>Swing</strong>, tap <strong>Pair with Simulator</strong>, then scan this code.</p>
-              <details><summary>Development address</summary><code id="pairing-url"></code></details>
-            </div>
-            <img id="qr" alt="QR code to pair the golfsim iPhone app">
-          </section>
-
-          <section class="setup-panel panel">
-            <span class="setup-icon" aria-hidden="true"></span>
-            <div><strong>Setup</strong><ol>
-              <li>Hold phone like a club.</li>
-              <li>Keep it upright, perpendicular to the ground.</li>
-              <li>Screen facing the direction of the swing.</li>
-              <li>Select a club on the phone.</li>
-              <li>Get into address position.</li>
-              <li>Swing when ready.</li>
-            </ol></div>
-          </section>
-        </section>
-
-        <aside class="right-rail">
-          <section class="controller-panel panel">
-            <div class="panel-heading"><h2>Live Controller</h2><span class="live-badge">Live</span></div>
-            <div class="controller-content">
-              <div class="controller-stage">
-                <div class="axis axis-x">X</div><div class="axis axis-y">Y</div><div class="axis axis-z">Z</div>
-                <div id="phone" class="phone"><div class="phone-speaker"></div><div class="phone-screen">golfsim</div></div>
-              </div>
-              <div class="motion-values">
-                <h3>Rotation <span>rad/s</span></h3>
-                <dl><div><dt>X</dt><dd id="rotation-x">—</dd></div><div><dt>Y</dt><dd id="rotation-y">—</dd></div><div><dt>Z</dt><dd id="rotation-z">—</dd></div></dl>
-                <h3>Quaternion</h3>
-                <dl><div><dt>W</dt><dd id="quaternion-w">—</dd></div><div><dt>X</dt><dd id="quaternion-x">—</dd></div><div><dt>Y</dt><dd id="quaternion-y">—</dd></div><div><dt>Z</dt><dd id="quaternion-z">—</dd></div></dl>
-              </div>
-            </div>
-          </section>
-
-          <section class="connection-panel panel">
-            <div><span class="section-label">Connection</span><strong id="connection-detail">Waiting</strong></div>
-            <dl><div><dt>Update rate</dt><dd id="rate">—</dd></div><div><dt>Latency</dt><dd id="latency">—</dd></div><div><dt>Session</dt><dd id="session">—</dd></div></dl>
-          </section>
-
-          <section class="swing-panel panel">
-            <span class="section-label">Swing Capture</span>
-            <div class="swing-waiting"><span class="swing-ring"></span><div><strong>Waiting for swing…</strong><small>Swing results will appear here in a future milestone.</small></div></div>
-          </section>
-        </aside>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>golfsim — Driving Range</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main class="simulator-shell">
+  <header class="topbar">
+    <div class="brand">golfsim</div>
+    <div class="controller-status"><span id="status-light" class="status-light waiting"></span><div><strong id="status">Waiting for iPhone</strong><small>iPhone Controller</small></div></div>
+    <button id="disconnect" class="disconnect-button" hidden>Disconnect</button>
+  </header>
+  <div class="simulator-layout">
+    <aside class="club-rail glass">
+      <span class="section-label">Club</span>
+      <ul id="club-list">
+        <li data-club="driver">Driver</li><li data-club="3_wood">3 Wood</li><li data-club="5_wood">5 Wood</li><li data-club="hybrid">Hybrid</li>
+        <li data-club="4_iron">4 Iron</li><li data-club="5_iron">5 Iron</li><li data-club="6_iron">6 Iron</li><li data-club="7_iron">7 Iron</li>
+        <li data-club="8_iron">8 Iron</li><li data-club="9_iron">9 Iron</li><li data-club="pitching_wedge">PW</li><li data-club="gap_wedge">GW</li>
+        <li data-club="sand_wedge">SW</li><li data-club="lob_wedge">LW</li><li data-club="putter">Putter</li>
+      </ul>
+      <small class="authority-note">Selected on iPhone</small>
+    </aside>
+    <section class="range-viewport">
+      <div class="range-photo">
+        <div class="haze"></div><div class="mountains"></div><div class="forest"></div>
+        <div class="fairway"><div class="mow mow-a"></div><div class="mow mow-b"></div><div class="centerline"></div></div>
+        <div class="yard yard-250">250</div><div class="yard yard-200">200</div><div class="yard yard-150">150</div><div class="yard yard-100">100</div><div class="yard yard-50">50</div>
+        <svg id="shot-layer" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-label="Ball flight">
+          <path id="shot-path" d="" pathLength="1"></path><circle id="flight-ball" cx="500" cy="635" r="7"></circle><circle id="landing-mark" cx="500" cy="635" r="12"></circle>
+        </svg>
+        <div class="tee-box"><div class="tee-ball"></div></div>
       </div>
-    </main>
-    <script src="/app.js"></script>
-  </body>
+      <section id="pairing-panel" class="pairing-panel glass">
+        <div><span class="section-label">Connect controller</span><h1>Pair your iPhone</h1><p>Open <b>Swing</b> on iPhone, tap <b>Pair with Simulator</b>, then scan.</p><details><summary>Development address</summary><code id="pairing-url"></code></details></div>
+        <img id="qr" alt="Pairing QR code">
+      </section>
+      <section id="shot-hud" class="shot-hud glass" hidden>
+        <div><span>Carry</span><strong id="shot-carry">—</strong></div><div><span>Total</span><strong id="shot-total">—</strong></div>
+        <div><span>Apex</span><strong id="shot-apex">—</strong></div><div><span>Launch</span><strong id="shot-launch">—</strong></div>
+        <div><span>Shape</span><strong id="shot-shape">—</strong></div>
+      </section>
+    </section>
+    <aside class="right-rail">
+      <section class="controller-panel glass">
+        <div class="panel-heading"><h2>Live Controller</h2><span class="live-badge">LIVE</span></div>
+        <div class="controller-stage"><div id="phone" class="phone"><div class="phone-speaker"></div><div class="phone-screen">golfsim</div></div></div>
+        <div class="motion-values"><span>Rotation</span><b id="rotation-x">—</b><b id="rotation-y">—</b><b id="rotation-z">—</b><span>Quaternion</span><b id="quaternion-w">—</b><b id="quaternion-x">—</b><b id="quaternion-y">—</b><b id="quaternion-z">—</b></div>
+      </section>
+      <section class="connection-panel glass"><div><span class="section-label">Connection</span><strong id="connection-detail">Waiting</strong></div><dl><div><dt>Rate</dt><dd id="rate">—</dd></div><div><dt>Latency</dt><dd id="latency">—</dd></div><div><dt>Session</dt><dd id="session">—</dd></div></dl></section>
+      <section class="swing-panel glass">
+        <span class="section-label">Swing Capture</span>
+        <div class="swing-heading"><span id="swing-ring" class="swing-ring"></span><div><strong id="swing-status">Waiting for address</strong><small id="swing-message">Set address on iPhone.</small></div></div>
+        <div id="swing-result" class="swing-result" hidden>
+          <div class="result-grid"><span>Club <b id="result-club">—</b></span><span>Duration <b id="result-duration">—</b></span><span>Back <b id="result-backswing">—</b></span><span>Down <b id="result-downswing">—</b></span><span>Tempo <b id="result-tempo">—</b></span><span>Peak ω <b id="result-rotation">—</b></span><span>Peak accel <b id="result-acceleration">—</b></span></div>
+          <div id="phase-timeline" class="phase-timeline"></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
+<script src="/app.js"></script>
+</body>
 </html>
