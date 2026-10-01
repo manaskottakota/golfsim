@@ -21,6 +21,7 @@ struct SwingCaptureView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    SimulatorConnectionView()
                     ClubPickerView(clubSelection: clubSelection)
                     AlignmentGuideView(latestSample: motion.latestSample)
                     captureControls
@@ -42,6 +43,9 @@ struct SwingCaptureView: View {
                 appState.setSwingSessionActive(false)
                 UIApplication.shared.isIdleTimerDisabled = appState.motion.isStreaming
                 volumeTrigger.disable()
+            }
+            .onChange(of: clubSelection.selectedClub) {
+                appState.simulatorSession.sendSelectedClub()
             }
             .sheet(isPresented: $showShareSheet) {
                 if let exportURL {
