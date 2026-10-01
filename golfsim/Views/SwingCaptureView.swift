@@ -21,9 +21,14 @@ struct SwingCaptureView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    SimulatorConnectionView()
                     ClubPickerView(clubSelection: clubSelection)
                     AlignmentGuideView(latestSample: motion.latestSample)
+                    AddressCalibrationView()
                     captureControls
+                    if let result = appState.swingAnalysis.latestResult {
+                        SwingAnalysisResultView(result: result)
+                    }
                     if let swing = motion.latestSwing {
                         swingSummary(swing)
                     }
@@ -42,6 +47,9 @@ struct SwingCaptureView: View {
                 appState.setSwingSessionActive(false)
                 UIApplication.shared.isIdleTimerDisabled = appState.motion.isStreaming
                 volumeTrigger.disable()
+            }
+            .onChange(of: clubSelection.selectedClub) {
+                appState.simulatorSession.sendSelectedClub()
             }
             .sheet(isPresented: $showShareSheet) {
                 if let exportURL {
@@ -78,7 +86,7 @@ struct SwingCaptureView: View {
                 )
             }
 
-            Text("Tap Start Swing or press Volume Up to capture pre-roll plus 6 seconds after trigger.")
+            Text(captureInstruction)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -95,7 +103,7 @@ struct SwingCaptureView: View {
                     .padding(.vertical, 16)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!motion.isStreaming || isCapturingSwing)
+            .disabled(!motion.isStreaming || isCapturingSwing || appState.swingAnalysis.addressCalibration.calibration == nil)
 
             if volumeTrigger.isEnabled {
                 Label("Volume Up enabled", systemImage: "speaker.plus.fill")
@@ -157,14 +165,25 @@ struct SwingCaptureView: View {
     }
 
     private func configureVolumeTrigger() {
-        volumeTrigger.onVolumeUp = { [motion, clubSelection] in
-            motion.triggerSwingCapture(club: clubSelection.selectedClub)
+        volumeTrigger.onVolumeUp = { [appState, clubSelection] in
+            appState.swingAnalysis.startSwingCapture(club: clubSelection.selectedClub)
         }
         volumeTrigger.enable()
     }
 
     private func triggerSwing() {
-        motion.triggerSwingCapture(club: clubSelection.selectedClub)
+        appState.swingAnalysis.startSwingCapture(club: clubSelection.selectedClub)
+    }
+
+    private var captureInstruction: String {
+        if appState.swingAnalysis.addressCalibration.calibration == nil {
+            return "Set Address before starting a swing. Capture keeps the existing pre-roll plus 6 seconds after trigger."
+        }
+        switch appState.swingAnalysis.workflowState {
+        case .analyzing: return "Swing captured — analyzing raw motion locally…"
+        case .invalid(let message): return "Invalid swing: \(message)"
+        default: return "Tap Start Swing or press Volume Up, then make one complete swing."
+        }
     }
 
     private func exportSwing(_ swing: SwingRecording) {

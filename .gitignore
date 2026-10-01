@@ -1,3 +1,9 @@
 # Xcode user-specific data
 *.xcuserstate
 xcuserdata/
+
+# Swift Package Manager build products
+.build/
+
+# Laptop simulator dependencies
+simulator/node_modules/
