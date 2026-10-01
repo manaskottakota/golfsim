@@ -17,6 +17,7 @@ import Testing
     "golfsim://pair?v=2&session=a&token=b&ws=ws%3A%2F%2Fhost%3A8080%2Fcontroller",
     "golfsim://pair?v=1&token=b&ws=ws%3A%2F%2Fhost%3A8080%2Fcontroller",
     "golfsim://pair?v=1&session=a&token=b&ws=https%3A%2F%2Fhost%2Fcontroller",
+    "golfsim://pair?v=1&session=a&token=b&ws=ws%3A%2F%2F127.0.0.1%3A8080%2Fcontroller",
     "golfsim://pair?v=1&v=1&session=a&token=b&ws=ws%3A%2F%2Fhost%2Fcontroller",
     "not a url"
 ])

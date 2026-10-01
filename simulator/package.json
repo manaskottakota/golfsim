@@ -5,7 +5,8 @@
   "description": "Local development display for the golfsim iPhone controller",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js"
+    "check": "node --check server.js && node --check server-config.js && node --check public/app.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "qrcode": "^1.5.4",

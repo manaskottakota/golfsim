@@ -19,9 +19,9 @@ npm install
 npm start
 ```
 
-Open <http://localhost:8080> on the laptop. The terminal prints both the page URL and the local address encoded into the QR code. A new server process creates a new session and one-time development token.
+Open <http://localhost:8080> on the laptop. The terminal prints both the page URL and the LAN address encoded into the QR code. A new server process creates a new session and one-time development token. The server refuses to create a QR containing `localhost` or a loopback address because an iPhone cannot reach those addresses on the laptop.
 
-The server automatically chooses the first non-loopback IPv4 address. If that is not the address reachable by the iPhone, restart it with the correct Wi-Fi address:
+The server prefers a private, non-loopback IPv4 address. If that is not the address reachable by the iPhone, restart it with the correct Wi-Fi address:
 
 ```bash
 GOLFSIM_HOST=192.168.1.25 npm start
@@ -47,12 +47,12 @@ Keep this terminal process running. Reloading the web page keeps the same sessio
 2. Select your development team if Xcode requests signing configuration.
 3. Select a physical iPhone as the run destination and run the `golfsim` scheme.
 4. Open the **Swing** tab.
-5. Tap **Pair with Simulator**.
+5. Tap **Pair with Simulator** in the Simulator card at the top of the Swing screen. Do not use the standalone iOS Camera app; pairing is handled by golfsim's in-app scanner.
 6. Approve camera access so the app can scan the QR code.
 7. Scan the QR code displayed at `http://localhost:8080` on the laptop.
 8. Approve the iOS **Local Network** prompt if it appears.
 
-The iPhone card and laptop header should both show **Connected**. Select another club on the phone and verify that the laptop's Club value changes. Rotate the phone and verify that the rectangular controller and quaternion/rotation-rate readouts move immediately. The page also reports the received update rate and an approximate send-to-browser latency.
+The iPhone card and laptop top bar should both show **Connected**. The QR panel disappears to reveal the driving range. Select another club on the phone and verify that the laptop's Club rail highlights it. Rotate the phone and verify that the compact Live Controller phone and quaternion/rotation-rate readouts move immediately. The Connection panel also reports the received update rate and an approximate send-to-browser latency.
 
 Use **Disconnect** on the phone to close the controller connection. **Reconnect** retries the last scanned session while the same Node server is still running. Scan the new QR after restarting the server because its session and token change.
 
@@ -86,6 +86,7 @@ Run JavaScript syntax checks after installing laptop dependencies:
 ```bash
 cd simulator
 npm run check
+npm test
 ```
 
 ## Known limitations
@@ -96,5 +97,6 @@ npm run check
 - Live pose is absolute Core Motion attitude, not calibrated address-relative orientation.
 - Browser and phone clocks provide only approximate latency.
 - The phone controller graphic is a diagnostics view, not a golf course.
+- The driving range is a visual foundation only; the ball does not launch yet.
 - No swing analysis, shot model, ball physics, or 3D golf environment is implemented.
 - Raw 100 Hz motion remains local and is not continuously sent to the laptop.

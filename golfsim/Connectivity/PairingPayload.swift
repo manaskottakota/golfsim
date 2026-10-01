@@ -6,6 +6,7 @@ enum PairingPayloadError: LocalizedError, Equatable {
     case missingSession
     case missingToken
     case invalidWebSocketURL
+    case unreachableHost
 
     var errorDescription: String? {
         switch self {
@@ -14,6 +15,7 @@ enum PairingPayloadError: LocalizedError, Equatable {
         case .missingSession: "The pairing code does not contain a session identifier."
         case .missingToken: "The pairing code does not contain a connection token."
         case .invalidWebSocketURL: "The pairing code contains an invalid simulator address."
+        case .unreachableHost: "The pairing code points to this phone instead of a laptop on the local network. Restart the laptop simulator with its Wi-Fi address."
         }
     }
 }
@@ -57,6 +59,10 @@ struct PairingPayload: Equatable, Sendable {
             webSocketComponents.host != nil
         else {
             throw PairingPayloadError.invalidWebSocketURL
+        }
+        let host = webSocketComponents.host?.lowercased() ?? ""
+        guard host != "localhost", host != "::1", !host.hasPrefix("127.") else {
+            throw PairingPayloadError.unreachableHost
         }
 
         var queryItems = (webSocketComponents.queryItems ?? []).filter {

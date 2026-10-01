@@ -34,6 +34,7 @@ final class SimulatorConnectionService {
     private var task: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
+    private var handshakeTimeoutTask: Task<Void, Never>?
     private var livePoseSendTask: Task<Void, Never>?
     private var pendingLivePose: LivePosePayload?
     private var expectedSessionID: String?
@@ -55,6 +56,11 @@ final class SimulatorConnectionService {
         }
         heartbeatTask = Task { [weak self] in
             await self?.runHeartbeat()
+        }
+        handshakeTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled, self?.state == .connecting else { return }
+            self?.handleConnectionFailure(SimulatorConnectionFailure.handshakeTimedOut)
         }
         send(.phoneHello(PhoneHelloPayload(
             deviceName: UIDevice.current.name,
@@ -137,6 +143,8 @@ final class SimulatorConnectionService {
                 return
             }
             state = .connected(sessionID: payload.sessionID)
+            handshakeTimeoutTask?.cancel()
+            handshakeTimeoutTask = nil
             lastErrorMessage = nil
             onConnectionAccepted?()
         case .ping(let payload):
@@ -168,10 +176,12 @@ final class SimulatorConnectionService {
         expectedSessionID = nil
         receiveTask?.cancel()
         heartbeatTask?.cancel()
+        handshakeTimeoutTask?.cancel()
         livePoseSendTask?.cancel()
         pendingLivePose = nil
         receiveTask = nil
         heartbeatTask = nil
+        handshakeTimeoutTask = nil
         livePoseSendTask = nil
         oldTask?.cancel(with: .normalClosure, reason: nil)
         state = .disconnected
@@ -182,16 +192,48 @@ final class SimulatorConnectionService {
         task = nil
         receiveTask?.cancel()
         heartbeatTask?.cancel()
+        handshakeTimeoutTask?.cancel()
         livePoseSendTask?.cancel()
         pendingLivePose = nil
         livePoseSendTask = nil
-        lastErrorMessage = error.localizedDescription
-        state = .failed(message: error.localizedDescription)
+        handshakeTimeoutTask = nil
+        let message = Self.userFacingMessage(for: error)
+        lastErrorMessage = message
+        state = .failed(message: message)
     }
 
     private func finishDisconnected(message: String) {
         disconnect(sendMessage: false)
         lastErrorMessage = message
+    }
+
+    private static func userFacingMessage(for error: Error) -> String {
+        if let failure = error as? SimulatorConnectionFailure {
+            return failure.localizedDescription
+        }
+        guard let urlError = error as? URLError else {
+            return "WebSocket connection failed: \(error.localizedDescription)"
+        }
+        switch urlError.code {
+        case .notConnectedToInternet, .internationalRoamingOff, .dataNotAllowed:
+            return "Local network unavailable. Join the same Wi-Fi network as the laptop and allow Local Network access in iOS Settings."
+        case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .timedOut:
+            return "Laptop unreachable. Check that the simulator is running and that the QR code uses the laptop's Wi-Fi address."
+        case .networkConnectionLost:
+            return "The laptop connection was lost. Check Wi-Fi, then tap Reconnect."
+        case .badServerResponse, .userAuthenticationRequired, .userCancelledAuthentication:
+            return "The simulator rejected the WebSocket handshake. Restart the laptop server and scan its new QR code."
+        default:
+            return "WebSocket connection failed: \(urlError.localizedDescription)"
+        }
+    }
+}
+
+private enum SimulatorConnectionFailure: LocalizedError {
+    case handshakeTimedOut
+
+    var errorDescription: String? {
+        "The laptop did not accept the handshake. Confirm both devices are on the same Wi-Fi network, then restart the simulator and scan its new QR code."
     }
 }
 

@@ -26,7 +26,7 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        configureCamera()
+        requestCameraAccess()
     }
 
     override func viewDidLayoutSubviews() {
@@ -37,6 +37,28 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         captureSession.stopRunning()
+    }
+
+    private func requestCameraAccess() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            configureCamera()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if granted {
+                        self.configureCamera()
+                    } else {
+                        self.onError?("Camera access was denied. Enable Camera for golfsim in iOS Settings to scan the simulator QR code.")
+                    }
+                }
+            }
+        case .denied, .restricted:
+            onError?("Camera access is unavailable. Enable Camera for golfsim in iOS Settings to scan the simulator QR code.")
+        @unknown default:
+            onError?("Camera permission could not be determined.")
+        }
     }
 
     private func configureCamera() {

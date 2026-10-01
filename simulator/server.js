@@ -5,36 +5,28 @@ const path = require("node:path");
 const fs = require("node:fs");
 const QRCode = require("qrcode");
 const { WebSocketServer, WebSocket } = require("ws");
+const { PROTOCOL_VERSION, chooseAdvertisedHost, createPairingURL } = require("./server-config");
 
-const PROTOCOL_VERSION = 1;
 const PORT = Number(process.env.PORT || 8080);
 const PUBLIC_DIRECTORY = path.join(__dirname, "public");
 
-function localIPv4Addresses() {
-  return Object.values(os.networkInterfaces())
-    .flat()
-    .filter((address) => address && address.family === "IPv4" && !address.internal)
-    .map((address) => address.address);
-}
-
-const advertisedHost = process.env.GOLFSIM_HOST || localIPv4Addresses()[0] || "127.0.0.1";
+const advertisedHost = chooseAdvertisedHost(os.networkInterfaces(), process.env.GOLFSIM_HOST);
 const session = {
   id: crypto.randomBytes(12).toString("base64url"),
   token: crypto.randomBytes(24).toString("base64url"),
   controller: null,
+  controllerAccepted: false,
   displays: new Set(),
   hasConnected: false,
 };
 
 function pairingURL() {
-  const socketURL = `ws://${advertisedHost}:${PORT}/controller`;
-  const parameters = new URLSearchParams({
-    v: String(PROTOCOL_VERSION),
-    session: session.id,
+  return createPairingURL({
+    host: advertisedHost,
+    port: PORT,
+    sessionID: session.id,
     token: session.token,
-    ws: socketURL,
   });
-  return `golfsim://pair?${parameters.toString()}`;
 }
 
 function send(socket, type, payload) {
@@ -105,7 +97,19 @@ webSocketServer.on("connection", (socket, request, role) => {
 
   if (role === "/display") {
     session.displays.add(socket);
-    send(socket, "displayState", { connected: Boolean(session.controller), hasConnected: session.hasConnected });
+    send(socket, "displayState", {
+      connected: session.controllerAccepted,
+      hasConnected: session.hasConnected,
+      sessionID: session.id,
+    });
+    socket.on("message", (buffer) => {
+      let message;
+      try { message = JSON.parse(buffer.toString()); } catch { return; }
+      if (message.type === "disconnectController" && session.controller) {
+        send(session.controller, "disconnect", { reason: "Disconnected from the laptop simulator." });
+        session.controller.close(1000, "Disconnected from display");
+      }
+    });
     socket.on("close", () => session.displays.delete(socket));
     return;
   }
@@ -115,6 +119,7 @@ webSocketServer.on("connection", (socket, request, role) => {
     session.controller.close(1000, "Replaced by new controller");
   }
   session.controller = socket;
+  session.controllerAccepted = false;
 
   socket.on("message", (buffer, isBinary) => {
     let message;
@@ -130,10 +135,15 @@ webSocketServer.on("connection", (socket, request, role) => {
     }
 
     if (message.type === "phoneHello") {
+      if (typeof message.payload.deviceName !== "string" || typeof message.payload.appVersion !== "string") {
+        send(socket, "error", { message: "Malformed phoneHello payload." });
+        return;
+      }
+      session.controllerAccepted = true;
       session.hasConnected = true;
       send(socket, "connectionAccepted", { sessionID: session.id });
       broadcast("phoneHello", message.payload);
-      broadcast("displayState", { connected: true, hasConnected: true });
+      broadcast("displayState", { connected: true, hasConnected: true, sessionID: session.id });
     } else if (message.type === "ping") {
       send(socket, "pong", message.payload);
     } else if (message.type === "disconnect") {
@@ -148,7 +158,8 @@ webSocketServer.on("connection", (socket, request, role) => {
   socket.on("close", () => {
     if (session.controller === socket) {
       session.controller = null;
-      broadcast("displayState", { connected: false, hasConnected: session.hasConnected });
+      session.controllerAccepted = false;
+      broadcast("displayState", { connected: false, hasConnected: session.hasConnected, sessionID: session.id });
     }
   });
   socket.on("error", (error) => console.error("Controller socket error:", error.message));
