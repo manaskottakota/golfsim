@@ -14,16 +14,6 @@
     <button id="disconnect" class="disconnect-button" hidden>Disconnect</button>
   </header>
   <div class="simulator-layout">
-    <aside class="club-rail glass">
-      <span class="section-label">Club</span>
-      <ul id="club-list">
-        <li data-club="driver">Driver</li><li data-club="3_wood">3 Wood</li><li data-club="5_wood">5 Wood</li><li data-club="hybrid">Hybrid</li>
-        <li data-club="4_iron">4 Iron</li><li data-club="5_iron">5 Iron</li><li data-club="6_iron">6 Iron</li><li data-club="7_iron">7 Iron</li>
-        <li data-club="8_iron">8 Iron</li><li data-club="9_iron">9 Iron</li><li data-club="pitching_wedge">PW</li><li data-club="gap_wedge">GW</li>
-        <li data-club="sand_wedge">SW</li><li data-club="lob_wedge">LW</li><li data-club="putter">Putter</li>
-      </ul>
-      <small class="authority-note">Selected on iPhone</small>
-    </aside>
     <section class="range-viewport">
       <div class="range-photo">
         <div class="haze"></div><div class="mountains"></div><div class="forest"></div>
@@ -38,10 +28,14 @@
         <div><span class="section-label">Connect controller</span><h1>Pair your iPhone</h1><p>Open <b>Swing</b> on iPhone, tap <b>Pair with Simulator</b>, then scan.</p><details><summary>Development address</summary><code id="pairing-url"></code></details></div>
         <img id="qr" alt="Pairing QR code">
       </section>
-      <section id="shot-hud" class="shot-hud glass" hidden>
-        <div><span>Carry</span><strong id="shot-carry">—</strong></div><div><span>Total</span><strong id="shot-total">—</strong></div>
-        <div><span>Apex</span><strong id="shot-apex">—</strong></div><div><span>Launch</span><strong id="shot-launch">—</strong></div>
-        <div><span>Shape</span><strong id="shot-shape">—</strong></div>
+      <section id="shot-hud" class="shot-hud glass">
+        <div><span>Club</span><strong id="shot-club">—</strong></div>
+        <div><span>Carry</span><strong id="shot-carry">—</strong></div>
+        <div><span>Total</span><strong id="shot-total">—</strong></div>
+        <div><span>Apex</span><strong id="shot-apex">—</strong></div>
+        <div><span>Launch</span><strong id="shot-launch">—</strong></div>
+        <div><span>Curve</span><strong id="shot-curve">—</strong></div>
+        <div><span>Shot Shape</span><strong id="shot-shape">—</strong></div>
       </section>
     </section>
     <aside class="right-rail">
