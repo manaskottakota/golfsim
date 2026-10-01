@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>golfsim</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">iPhone controller development display</p>
+          <h1>golfsim</h1>
+        </div>
+        <div id="status" class="status waiting"><span></span> Waiting</div>
+      </header>
+
+      <section class="grid">
+        <article class="card pairing">
+          <h2>Pair iPhone</h2>
+          <p>Open the Swing tab, tap <strong>Pair with Simulator</strong>, and scan this code.</p>
+          <img id="qr" alt="Simulator pairing QR code">
+          <details><summary>Pairing address</summary><code id="pairing-url"></code></details>
+        </article>
+
+        <article class="card controller">
+          <h2>Live controller</h2>
+          <div class="stage">
+            <div id="phone" class="phone"><div class="screen">golfsim</div></div>
+          </div>
+          <p class="hint">The screen-facing coordinate convention will be calibrated in a later milestone.</p>
+        </article>
+
+        <article class="card telemetry">
+          <h2>Telemetry</h2>
+          <dl>
+            <div><dt>Club</dt><dd id="club">—</dd></div>
+            <div><dt>Update rate</dt><dd id="rate">—</dd></div>
+            <div><dt>Approx. latency</dt><dd id="latency">—</dd></div>
+            <div><dt>Sequence</dt><dd id="sequence">—</dd></div>
+          </dl>
+          <h3>Quaternion (w, x, y, z)</h3>
+          <pre id="quaternion">—</pre>
+          <h3>Rotation rate (x, y, z rad/s)</h3>
+          <pre id="rotation">—</pre>
+        </article>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -12,7 +12,7 @@ struct AlignmentGuideView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Clubface alignment")
                 .font(.headline)
-            Text("Hold the phone on the clubface so the screen faces the ball. Keep the long edge parallel to the sole.")
+            Text("Hold the phone upright, approximately perpendicular to the ground, with the screen facing the direction of the swing.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -26,7 +26,7 @@ struct AlignmentGuideView: View {
                 VStack(spacing: 6) {
                     Image(systemName: "iphone.gen3")
                         .font(.title2)
-                    Text("Screen → ball")
+                    Text("Screen → swing direction")
                         .font(.caption2.weight(.semibold))
                 }
                 .foregroundStyle(.secondary)
@@ -45,35 +45,24 @@ struct AlignmentGuideView: View {
 
     @ViewBuilder
     private func alignmentFeedback(for sample: MotionSample) -> some View {
-        let pitchHint = pitchDescription(gravityY: sample.gravityY)
-        let rollHint = rollDescription(gravityX: sample.gravityX)
+        let uprightHint = uprightDescription(gravityZ: sample.gravityZ)
 
         VStack(alignment: .leading, spacing: 6) {
-            Label(pitchHint.message, systemImage: pitchHint.icon)
-            Label(rollHint.message, systemImage: rollHint.icon)
+            Label(uprightHint.message, systemImage: uprightHint.icon)
+            Text("Gravity can verify that the screen is upright, but not which horizontal direction it faces. Point the screen in the swing direction yourself.")
+                .foregroundStyle(.secondary)
         }
         .font(.footnote)
-        .foregroundStyle(pitchHint.isGood && rollHint.isGood ? .green : .orange)
+        .foregroundStyle(uprightHint.isGood ? .green : .orange)
     }
 
-    private func pitchDescription(gravityY: Double) -> (message: String, icon: String, isGood: Bool) {
-        if abs(gravityY) < 0.25 {
-            return ("Pitch: phone is fairly upright for face-on mounting.", "checkmark.circle", true)
+    private func uprightDescription(gravityZ: Double) -> (message: String, icon: String, isGood: Bool) {
+        // Device Z is perpendicular to the screen. Near-zero Z gravity means the screen plane is vertical,
+        // regardless of whether the user holds the phone in portrait or landscape.
+        if abs(gravityZ) < 0.25 {
+            return ("Phone is upright for the address position.", "checkmark.circle", true)
         }
-        if gravityY > 0.25 {
-            return ("Pitch: tilt top edge toward the ground.", "arrow.down.forward", false)
-        }
-        return ("Pitch: tilt top edge toward the sky.", "arrow.up.forward", false)
-    }
-
-    private func rollDescription(gravityX: Double) -> (message: String, icon: String, isGood: Bool) {
-        if abs(gravityX) < 0.25 {
-            return ("Roll: level left-to-right.", "checkmark.circle", true)
-        }
-        if gravityX > 0.25 {
-            return ("Roll: lower the right edge slightly.", "arrow.right", false)
-        }
-        return ("Roll: lower the left edge slightly.", "arrow.left", false)
+        return ("Tilt the phone until its screen is perpendicular to the ground.", "iphone.gen3.radiowaves.left.and.right", false)
     }
 }
 
