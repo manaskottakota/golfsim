@@ -51,7 +51,7 @@ function serveStatic(request, response) {
       return;
     }
     const extension = path.extname(filePath);
-    const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
+    const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml" };
     response.writeHead(200, { "Content-Type": `${contentTypes[extension] || "application/octet-stream"}; charset=utf-8` });
     response.end(data);
   });
