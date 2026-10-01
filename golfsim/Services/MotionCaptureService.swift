@@ -39,6 +39,9 @@ final class MotionCaptureService {
     private(set) var latestSwing: SwingRecording?
     private(set) var ringBufferSampleCount = 0
 
+    var sampleIngestedHandler: ((MotionSample) -> Void)?
+    var swingCompletedHandler: ((SwingRecording) -> Void)?
+
     /// Target interval passed to Core Motion (actual rate is device-dependent).
     var preferredUpdateInterval: TimeInterval = 1.0 / 100.0
 
@@ -165,7 +168,8 @@ final class MotionCaptureService {
             postTriggerSampleCount: split.postTrigger,
             sampleCount: recording.samples.count,
             durationSeconds: recording.durationSeconds,
-            samples: recording.samples
+            samples: recording.samples,
+            analysisResult: recording.analysisResult
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -215,6 +219,7 @@ final class MotionCaptureService {
 
     private func ingest(_ sample: MotionSample) {
         latestSample = sample
+        sampleIngestedHandler?(sample)
 
         if streamStartMotionTime == nil {
             streamStartMotionTime = sample.motionTimestamp
@@ -276,19 +281,26 @@ final class MotionCaptureService {
             return
         }
 
-        latestSwing = SwingRecording(
+        let recording = SwingRecording(
             id: UUID(),
             club: club,
             triggeredAt: pendingSwingTriggerDate,
             triggerMotionTimestamp: pendingSwingTriggerMotionTime,
             samples: activeSwingSamples
         )
+        latestSwing = recording
+        swingCompletedHandler?(recording)
 
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
         activeSwingSamples.removeAll(keepingCapacity: false)
         pendingSwingClub = nil
         swingPhase = .idle
+    }
+
+    func attachAnalysis(_ result: SwingAnalysisResult, to recordingID: UUID) {
+        guard latestSwing?.id == recordingID else { return }
+        latestSwing?.analysisResult = result
     }
 }
 

@@ -16,6 +16,7 @@ struct SwingRecording: Identifiable, Codable, Sendable {
     var triggeredAt: Date
     var triggerMotionTimestamp: TimeInterval
     var samples: [MotionSample]
+    var analysisResult: SwingAnalysisResult? = nil
 
     var durationSeconds: TimeInterval {
         guard
@@ -42,4 +43,5 @@ struct SwingRecordingExport: Codable {
     var sampleCount: Int
     var durationSeconds: TimeInterval
     var samples: [MotionSample]
+    var analysisResult: SwingAnalysisResult?
 }

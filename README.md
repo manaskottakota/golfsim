@@ -54,11 +54,22 @@ Keep this terminal process running. Reloading the web page keeps the same sessio
 
 The iPhone card and laptop top bar should both show **Connected**. The QR panel disappears to reveal the driving range. Select another club on the phone and verify that the laptop's Club rail highlights it. Rotate the phone and verify that the compact Live Controller phone and quaternion/rotation-rate readouts move immediately. The Connection panel also reports the received update rate and an approximate send-to-browser latency.
 
+To capture an analyzed swing:
+
+1. Hold the phone upright and still at address, with its screen facing the direction of the swing.
+2. Tap **Set Address** and remain still for about 0.75 seconds.
+3. Wait for the green **Ready** confirmation.
+4. Tap **Start Swing**, then make one complete swing.
+5. After the existing six-second capture finishes, the phone analyzes the raw approximately 100 Hz recording offline.
+6. Review durations, tempo, sensor peaks, and the raw/smoothed validation timeline on the phone and laptop.
+
+The exported swing JSON retains every raw sample and now includes a successful analysis result. The first-pass phase detector is deterministic but requires tuning with real swings; its synthetic tests verify software behavior, not golf accuracy.
+
 Use **Disconnect** on the phone to close the controller connection. **Reconnect** retries the last scanned session while the same Node server is still running. Scan the new QR after restarting the server because its session and token change.
 
 ## 3. Address-position convention
 
-The phone represents the clubface. Hold it upright, with the screen approximately perpendicular to the ground and facing the intended swing direction. The current guide checks only whether gravity lies mostly in the plane of the screen; gravity cannot determine which horizontal direction the screen faces. This guide is not address calibration, and the transmitted quaternion is not yet transformed into an address-relative clubface orientation.
+The phone represents the clubface. Hold it upright, with the screen approximately perpendicular to the ground and facing the intended swing direction. The passive alignment guide checks only whether gravity lies mostly in the plane of the screen; gravity cannot determine which horizontal direction the screen faces. **Set Address** separately captures the stable reference quaternion that defines heading. Live laptop pose remains absolute Core Motion attitude, while offline swing orientation metrics are address-relative.
 
 ## Network permissions and development security
 
@@ -98,5 +109,6 @@ npm test
 - Browser and phone clocks provide only approximate latency.
 - The phone controller graphic is a diagnostics view, not a golf course.
 - The driving range is a visual foundation only; the ball does not launch yet.
-- No swing analysis, shot model, ball physics, or 3D golf environment is implemented.
+- First-pass swing analysis is intended for validation and threshold tuning; it does not calculate ball flight.
+- No shot model, ball physics, or 3D golf environment is implemented.
 - Raw 100 Hz motion remains local and is not continuously sent to the laptop.

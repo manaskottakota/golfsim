@@ -13,6 +13,20 @@ const elements = {
   session: document.querySelector("#session"),
   quaternion: ["w", "x", "y", "z"].map((axis) => document.querySelector(`#quaternion-${axis}`)),
   rotation: ["x", "y", "z"].map((axis) => document.querySelector(`#rotation-${axis}`)),
+  swingRing: document.querySelector("#swing-ring"),
+  swingStatus: document.querySelector("#swing-status"),
+  swingMessage: document.querySelector("#swing-message"),
+  swingResult: document.querySelector("#swing-result"),
+  result: {
+    club: document.querySelector("#result-club"),
+    duration: document.querySelector("#result-duration"),
+    backswing: document.querySelector("#result-backswing"),
+    downswing: document.querySelector("#result-downswing"),
+    tempo: document.querySelector("#result-tempo"),
+    rotation: document.querySelector("#result-rotation"),
+    acceleration: document.querySelector("#result-acceleration"),
+  },
+  phaseTimeline: document.querySelector("#phase-timeline"),
 };
 
 let socket;
@@ -68,6 +82,47 @@ function selectClub(club) {
   elements.clubItems.forEach((item) => item.classList.toggle("selected", item.dataset.club === club));
 }
 
+const swingStates = {
+  waiting_for_address: ["Waiting for address", "Tap Set Address in the iPhone app."],
+  address_calibrated: ["Address calibrated", "Ready to record a swing."],
+  waiting_for_swing: ["Waiting for swing…", "Make one complete swing with the phone."],
+  analyzing: ["Swing detected / Analyzing", "Processing the raw 100 Hz recording on iPhone."],
+  swing_complete: ["Swing complete", "Analysis received from iPhone."],
+  invalid: ["Invalid swing / Try again", "No valid swing result was produced."],
+};
+
+function handleSwingStatus(payload) {
+  const [title, defaultMessage] = swingStates[payload.state] || ["Swing capture", "Waiting for iPhone."];
+  elements.swingStatus.textContent = title;
+  elements.swingMessage.textContent = payload.message || defaultMessage;
+  elements.swingRing.classList.toggle("analyzing", payload.state === "analyzing");
+  if (payload.state !== "swing_complete") elements.swingResult.hidden = true;
+}
+
+function handleSwingResult(result) {
+  elements.swingStatus.textContent = "Swing complete";
+  elements.swingMessage.textContent = `Analysis quality ${Math.round(result.confidence * 100)}%`;
+  elements.swingResult.hidden = false;
+  elements.result.club.textContent = result.club.replaceAll("_", " ");
+  elements.result.duration.textContent = `${result.swingDuration.toFixed(2)} s`;
+  elements.result.backswing.textContent = `${result.backswingDuration.toFixed(2)} s`;
+  elements.result.downswing.textContent = `${result.downswingDuration.toFixed(2)} s`;
+  elements.result.tempo.textContent = `${result.tempoRatio.toFixed(2)} : 1`;
+  elements.result.rotation.textContent = `${result.peakRotationalVelocity.toFixed(2)} rad/s`;
+  elements.result.acceleration.textContent = `${result.peakAcceleration.toFixed(2)} g`;
+  elements.phaseTimeline.replaceChildren();
+  const orderedPhases = ["address", "takeaway", "backswing", "transition", "downswing", "impact_region", "follow_through", "motion_end"];
+  const maximum = Math.max(result.swingDuration, ...Object.values(result.phaseOffsets));
+  for (const phase of orderedPhases) {
+    if (result.phaseOffsets[phase] === undefined) continue;
+    const marker = document.createElement("span");
+    marker.className = `phase-marker phase-${phase}`;
+    marker.style.left = `${Math.max(0, Math.min(100, result.phaseOffsets[phase] / maximum * 100))}%`;
+    marker.title = `${phase.replaceAll("_", " ")} ${result.phaseOffsets[phase].toFixed(2)}s`;
+    elements.phaseTimeline.append(marker);
+  }
+}
+
 function connectDisplay(sessionID) {
   clearTimeout(reconnectTimer);
   const scheme = location.protocol === "https:" ? "wss" : "ws";
@@ -83,6 +138,10 @@ function connectDisplay(sessionID) {
       handlePose(message.payload);
     } else if (message.type === "clubSelection") {
       selectClub(message.payload.club);
+    } else if (message.type === "swingStatus") {
+      handleSwingStatus(message.payload);
+    } else if (message.type === "swingResult") {
+      handleSwingResult(message.payload);
     }
   });
   socket.addEventListener("close", () => {

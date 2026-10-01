@@ -153,7 +153,7 @@ final class SimulatorConnectionService {
             finishDisconnected(message: payload.reason)
         case .error(let payload):
             handleConnectionFailure(payload)
-        case .phoneHello, .livePose, .clubSelection, .pong:
+        case .phoneHello, .livePose, .clubSelection, .swingStatus, .swingResult, .pong:
             break
         }
     }

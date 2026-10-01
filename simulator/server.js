@@ -148,7 +148,7 @@ webSocketServer.on("connection", (socket, request, role) => {
       send(socket, "pong", message.payload);
     } else if (message.type === "disconnect") {
       socket.close(1000, message.payload.reason || "Controller disconnected");
-    } else if (["livePose", "clubSelection", "pong"].includes(message.type)) {
+    } else if (["livePose", "clubSelection", "swingStatus", "swingResult", "pong"].includes(message.type)) {
       broadcast(message.type, message.payload);
     } else {
       send(socket, "error", { message: `Message type ${message.type} is not accepted from a phone.` });

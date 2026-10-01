@@ -10,9 +10,21 @@ let package = Package(
     targets: [
         .target(
             name: "GolfSimProtocol",
-            path: "golfsim/Connectivity",
-            exclude: ["SimulatorConnectionService.swift"],
-            sources: ["PairingPayload.swift", "SimulatorProtocol.swift"]
+            path: "golfsim",
+            exclude: [
+                "App", "Assets.xcassets", "Services", "Utilities", "Views",
+                "ContentView.swift", "Info.plist", "golfsimApp.swift",
+                "Connectivity/SimulatorConnectionService.swift",
+                "Models/ClubSelectionStore.swift", "Models/MotionStreamHealth.swift"
+            ],
+            sources: [
+                "Analysis",
+                "Connectivity/PairingPayload.swift",
+                "Connectivity/SimulatorProtocol.swift",
+                "Models/GolfClub.swift",
+                "Models/MotionSample.swift",
+                "Models/SwingRecording.swift"
+            ]
         ),
         .testTarget(
             name: "GolfSimProtocolTests",

@@ -41,6 +41,27 @@ struct ClubSelectionPayload: Codable, Equatable, Sendable {
     let club: String
 }
 
+struct SwingStatusPayload: Codable, Equatable, Sendable {
+    let state: String
+    let message: String?
+}
+
+struct SwingResultPayload: Codable, Equatable, Sendable {
+    let resultID: String
+    let recordingID: String
+    let club: String
+    let swingDuration: TimeInterval
+    let backswingDuration: TimeInterval
+    let downswingDuration: TimeInterval
+    let tempoRatio: Double
+    let peakRotationalVelocity: Double
+    let peakAcceleration: Double
+    let maximumRelativeOrientationChangeDegrees: Double
+    let phaseOffsets: [String: TimeInterval]
+    let confidence: Double
+    let diagnostics: [String]
+}
+
 struct HeartbeatPayload: Codable, Equatable, Sendable {
     let id: String
     let sentAtUnixMilliseconds: Int64
@@ -59,6 +80,8 @@ enum SimulatorMessage: Equatable, Sendable {
     case connectionAccepted(ConnectionAcceptedPayload)
     case livePose(LivePosePayload)
     case clubSelection(ClubSelectionPayload)
+    case swingStatus(SwingStatusPayload)
+    case swingResult(SwingResultPayload)
     case ping(HeartbeatPayload)
     case pong(HeartbeatPayload)
     case disconnect(DisconnectPayload)
@@ -77,6 +100,8 @@ extension SimulatorMessage: Codable {
         case connectionAccepted
         case livePose
         case clubSelection
+        case swingStatus
+        case swingResult
         case ping
         case pong
         case disconnect
@@ -98,6 +123,12 @@ extension SimulatorMessage: Codable {
             try container.encode(payload, forKey: .payload)
         case .clubSelection(let payload):
             try container.encode(MessageType.clubSelection, forKey: .type)
+            try container.encode(payload, forKey: .payload)
+        case .swingStatus(let payload):
+            try container.encode(MessageType.swingStatus, forKey: .type)
+            try container.encode(payload, forKey: .payload)
+        case .swingResult(let payload):
+            try container.encode(MessageType.swingResult, forKey: .type)
             try container.encode(payload, forKey: .payload)
         case .ping(let payload):
             try container.encode(MessageType.ping, forKey: .type)
@@ -130,6 +161,8 @@ extension SimulatorMessage: Codable {
         case .connectionAccepted: self = .connectionAccepted(try container.decode(ConnectionAcceptedPayload.self, forKey: .payload))
         case .livePose: self = .livePose(try container.decode(LivePosePayload.self, forKey: .payload))
         case .clubSelection: self = .clubSelection(try container.decode(ClubSelectionPayload.self, forKey: .payload))
+        case .swingStatus: self = .swingStatus(try container.decode(SwingStatusPayload.self, forKey: .payload))
+        case .swingResult: self = .swingResult(try container.decode(SwingResultPayload.self, forKey: .payload))
         case .ping: self = .ping(try container.decode(HeartbeatPayload.self, forKey: .payload))
         case .pong: self = .pong(try container.decode(HeartbeatPayload.self, forKey: .payload))
         case .disconnect: self = .disconnect(try container.decode(DisconnectPayload.self, forKey: .payload))

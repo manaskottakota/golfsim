@@ -23,3 +23,23 @@ import Testing
         try JSONDecoder().decode(SimulatorMessage.self, from: Data(json.utf8))
     }
 }
+
+@Test func swingResultRoundTrips() throws {
+    let original = SimulatorMessage.swingResult(SwingResultPayload(
+        resultID: "result",
+        recordingID: "recording",
+        club: "7_iron",
+        swingDuration: 2.1,
+        backswingDuration: 1.2,
+        downswingDuration: 0.4,
+        tempoRatio: 3,
+        peakRotationalVelocity: 8.5,
+        peakAcceleration: 2.2,
+        maximumRelativeOrientationChangeDegrees: 142,
+        phaseOffsets: ["takeaway": 0, "transition": 1.2, "impact_region": 1.6],
+        confidence: 0.82,
+        diagnostics: []
+    ))
+    let data = try JSONEncoder().encode(original)
+    #expect(try JSONDecoder().decode(SimulatorMessage.self, from: data) == original)
+}

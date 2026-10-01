@@ -13,6 +13,7 @@ final class AppState {
     let clubSelection: ClubSelectionStore
     let motionStreaming: MotionStreamingCoordinator
     let simulatorSession: SimulatorSessionCoordinator
+    let swingAnalysis: SwingAnalysisCoordinator
 
     init() {
         let motion = MotionCaptureService()
@@ -21,6 +22,14 @@ final class AppState {
         self.clubSelection = clubSelection
         motionStreaming = MotionStreamingCoordinator()
         simulatorSession = SimulatorSessionCoordinator(motion: motion, clubSelection: clubSelection)
+        let swingAnalysis = SwingAnalysisCoordinator(motion: motion)
+        self.swingAnalysis = swingAnalysis
+        swingAnalysis.onStatusChanged = { [weak simulatorSession] state in
+            simulatorSession?.sendSwingStatus(state)
+        }
+        swingAnalysis.onResult = { [weak simulatorSession] result in
+            simulatorSession?.sendSwingResult(result)
+        }
     }
 
     func setSwingSessionActive(_ active: Bool) {
