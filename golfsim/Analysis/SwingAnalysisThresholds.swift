@@ -3,7 +3,9 @@ import Foundation
 struct SwingAnalysisThresholds: Equatable, Sendable {
     var smoothingWindowSamples = 7
     var minimumCaptureSamples = 80
-    var maximumSampleGapSeconds: TimeInterval = 0.08
+    var notableSampleGapSeconds: TimeInterval = 0.05
+    var severeSampleGapSeconds: TimeInterval = 0.20
+    var maximumSevereGapsInSwing = 2
 
     var activityRotationRate = 0.75
     var activityAcceleration = 0.28
@@ -13,13 +15,23 @@ struct SwingAnalysisThresholds: Equatable, Sendable {
     var settlingAcceleration = 0.16
     var settlingSamples = 18
 
+    // Swing-window isolation. These are intentionally permissive because torso,
+    // arms, wrists, and phone can all keep moving during a real golf swing.
+    var swingOnsetRotationRate = 0.45
+    var swingOnsetAcceleration = 0.16
+    var swingOnsetSustainSamples = 10
+    var swingOnsetRequiredSamples = 7
+    var swingEndRotationRate = 0.30
+    var swingEndAcceleration = 0.13
+    var swingEndSettleSamples = 20
+
     var minimumActivityDuration: TimeInterval = 0.65
     var expectedMinimumSwingDuration: TimeInterval = 0.8
     var expectedMaximumSwingDuration: TimeInterval = 4.5
     var minimumBackswingDuration: TimeInterval = 0.25
     var minimumDownswingDuration: TimeInterval = 0.12
-    var minimumBackswingPeakRotation = 1.0
-    var minimumDownswingPeakRotation = 1.8
+    var minimumBackswingPeakRotation = 0.65
+    var minimumDownswingPeakRotation = 1.0
     // Transition is primarily detected from angular-velocity direction reversal.
     // Magnitude is only a fallback for swings whose reversal is noisy.
     var transitionDirectionWindowSamples = 8
