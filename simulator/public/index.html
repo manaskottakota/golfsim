@@ -22,10 +22,10 @@
         <svg id="shot-layer" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-label="Ball flight">
           <path id="shot-path" d="" pathLength="1"></path><circle id="flight-ball" cx="500" cy="635" r="7"></circle><circle id="landing-mark" cx="500" cy="635" r="12"></circle>
         </svg>
-        <div class="tee-box"><div class="tee-ball"></div></div>
+        <div id="target-flag" class="target-flag" hidden><span></span><b>⚑</b></div><div class="tee-box"><div class="tee-ball"></div></div>
       </div>
       <section id="pairing-panel" class="pairing-panel glass">
-        <div><span class="section-label">Connect controller</span><h1>Pair your iPhone</h1><p>Scan with your iPhone Camera or enter the room code on your phone.</p><div class="room-code">ROOM <strong id="room-code">------</strong></div><div id="player-list" class="player-list">Waiting for players…</div><details><summary>Development address</summary><code id="pairing-url"></code></details></div>
+        <div><span class="section-label">Connect controller</span><h1>Pair your iPhone</h1><p>Scan with your iPhone Camera or enter the room code on your phone.</p><div class="room-code">ROOM <strong id="room-code">------</strong></div><div id="player-list" class="player-list">Waiting for players…</div><button id="start-game" class="start-game" disabled>Start Game</button><small id="lobby-note">1–4 players • 5 holes</small><details><summary>Development address</summary><code id="pairing-url"></code></details></div>
         <div class="pairing-qr"><iframe id="qr" title="Pairing QR code" src="/api/qr.png" scrolling="no"></iframe></div>
       </section>
       <section id="shot-hud" class="shot-hud glass">
@@ -38,7 +38,7 @@
         <div><span>Shot Shape</span><strong id="shot-shape">—</strong></div><div><span>Power</span><strong id="shot-power">—</strong></div><div><span>Tempo</span><strong id="shot-tempo">—</strong></div><div><span>Quality</span><strong id="shot-quality">—</strong></div>
       </section>
     </section>
-    <aside class="right-rail">
+    <aside class="right-rail"><section id="game-panel" class="game-panel glass"><div class="panel-heading"><h2 id="hole-title">Lobby</h2><span id="target-yardage" class="live-badge">5 HOLES</span></div><strong id="turn-label">Waiting to start</strong><div id="leaderboard" class="leaderboard"></div></section>
       <section class="controller-panel glass">
         <div class="panel-heading"><h2>Live Controller</h2><span class="live-badge">LIVE</span></div>
         <div class="controller-stage"><div id="phone" class="phone"><div class="phone-speaker"></div><div class="phone-screen">golfsim</div></div></div>
