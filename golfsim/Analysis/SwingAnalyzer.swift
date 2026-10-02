@@ -14,9 +14,6 @@ struct SwingAnalyzer: Sendable {
         for index in 1..<samples.count {
             let interval = samples[index].motionTimestamp - samples[index - 1].motionTimestamp
             guard interval > 0 else { return .failure(.nonMonotonicTimestamps(index: index)) }
-            guard interval <= thresholds.maximumSampleGapSeconds else {
-                return .failure(.excessiveSampleGap(seconds: interval))
-            }
         }
 
         let rawRotation = samples.map(\.rotationRateMagnitude)
@@ -41,10 +38,15 @@ struct SwingAnalyzer: Sendable {
         )
         let activityDuration = samples[primary.upperBound].motionTimestamp - samples[primary.lowerBound].motionTimestamp
         guard activityDuration >= thresholds.minimumActivityDuration else { return .failure(.insufficientMotion) }
-        if ranked.count > 1 {
-            let firstEnergy = activityEnergy(in: ranked[0], rotation: smoothRotation, acceleration: smoothAcceleration)
-            let secondEnergy = activityEnergy(in: ranked[1], rotation: smoothRotation, acceleration: smoothAcceleration)
-            if secondEnergy > firstEnergy * 0.82 { return .failure(.ambiguousSwingWindow) }
+        // The capture intentionally contains setup and post-swing movement. Keep only
+        // the strongest sustained motion sequence and trim it to takeaway -> settled follow-through.
+        primary = trimSwingWindow(primary, rotation: smoothRotation, acceleration: smoothAcceleration)
+
+        // Sensor scheduling hiccups outside the isolated swing are irrelevant. Inside
+        // the swing, tolerate a small number of gaps and reject only badly corrupted data.
+        let swingGaps = sampleGaps(in: primary, samples: samples)
+        if swingGaps.filter({ $0 > thresholds.severeSampleGapSeconds }).count > thresholds.maximumSevereGapsInSwing {
+            return .failure(.excessiveSampleGap(seconds: swingGaps.max() ?? 0))
         }
 
         let impactStart = primary.lowerBound + Int(Double(primary.count) * thresholds.impactSearchStartFraction)
@@ -74,10 +76,15 @@ struct SwingAnalyzer: Sendable {
         let downswingPeak = smoothRotation[transitionIndex...impactIndex].max() ?? 0
         guard
             backswingPeak >= thresholds.minimumBackswingPeakRotation,
-            downswingPeak >= thresholds.minimumDownswingPeakRotation,
-            hasDirectionReversal(near: transitionIndex, samples: samples)
-                || smoothRotation[transitionIndex] <= min(backswingPeak, downswingPeak) * thresholds.transitionMagnitudeFallbackFraction
+            downswingPeak >= thresholds.minimumDownswingPeakRotation
         else { return .failure(.noMeaningfulTransition) }
+
+        // Direction reversal and a magnitude valley improve confidence, but are not
+        // hard validity requirements. Whole-body rotation can keep phone angular
+        // velocity high through a perfectly legitimate golf transition.
+        let transitionHasReversal = hasDirectionReversal(near: transitionIndex, samples: samples)
+        let transitionHasValley = smoothRotation[transitionIndex]
+            <= min(backswingPeak, downswingPeak) * thresholds.transitionMagnitudeFallbackFraction
 
         let takeawayIndex = primary.lowerBound
         let addressIndex = max(0, takeawayIndex - thresholds.activitySustainSamples)
@@ -121,6 +128,15 @@ struct SwingAnalyzer: Sendable {
         )
 
         var diagnostics: [String] = []
+        if !transitionHasReversal && !transitionHasValley {
+            diagnostics.append("Transition inferred from the best motion candidate; reversal signal was weak.")
+        }
+        if !swingGaps.isEmpty {
+            let notableGaps = swingGaps.filter { $0 > thresholds.notableSampleGapSeconds }
+            if !notableGaps.isEmpty {
+                diagnostics.append("Motion stream contained \(notableGaps.count) brief sample gap(s) inside the swing.")
+            }
+        }
         if totalDuration < thresholds.expectedMinimumSwingDuration {
             diagnostics.append("Detected activity is shorter than the initial expected range.")
         } else if totalDuration > thresholds.expectedMaximumSwingDuration {
@@ -152,6 +168,58 @@ struct SwingAnalyzer: Sendable {
             diagnostics: diagnostics,
             signalTimeline: signalTimeline
         ))
+    }
+
+    private func trimSwingWindow(
+        _ range: ClosedRange<Int>,
+        rotation: [Double],
+        acceleration: [Double]
+    ) -> ClosedRange<Int> {
+        var lower = range.lowerBound
+        var upper = range.upperBound
+
+        // Require sustained motion before declaring takeaway so isolated setup/body
+        // adjustments at the beginning are discarded.
+        if range.count >= thresholds.swingOnsetSustainSamples {
+            for index in range.lowerBound...max(range.lowerBound, range.upperBound - thresholds.swingOnsetSustainSamples + 1) {
+                let end = min(range.upperBound, index + thresholds.swingOnsetSustainSamples - 1)
+                let activeCount = (index...end).filter {
+                    rotation[$0] >= thresholds.swingOnsetRotationRate
+                        || acceleration[$0] >= thresholds.swingOnsetAcceleration
+                }.count
+                if activeCount >= thresholds.swingOnsetRequiredSamples {
+                    lower = index
+                    break
+                }
+            }
+        }
+
+        // End only after sustained settling. This keeps legitimate body rotation and
+        // follow-through while removing repositioning after the swing.
+        var quiet = 0
+        if lower < range.upperBound {
+            for index in (lower + 1)...range.upperBound {
+                if rotation[index] <= thresholds.swingEndRotationRate
+                    && acceleration[index] <= thresholds.swingEndAcceleration {
+                    quiet += 1
+                    if quiet >= thresholds.swingEndSettleSamples {
+                        upper = max(lower + 1, index - quiet + 1)
+                        break
+                    }
+                } else {
+                    quiet = 0
+                }
+            }
+        }
+        return lower...max(lower + 1, upper)
+    }
+
+    private func sampleGaps(in range: ClosedRange<Int>, samples: [MotionSample]) -> [TimeInterval] {
+        guard range.lowerBound < range.upperBound else { return [] }
+        return ((range.lowerBound + 1)...range.upperBound).compactMap { index in
+            let gap = samples[index].motionTimestamp - samples[index - 1].motionTimestamp
+            return gap > thresholds.notableSampleGapSeconds ? gap : nil
+        }
     }
 
     private func transitionScore(index: Int, samples: [MotionSample], smoothRotation: [Double]) -> Double {
