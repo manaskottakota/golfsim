@@ -20,7 +20,14 @@ struct SwingAnalysisThresholds: Equatable, Sendable {
     var minimumDownswingDuration: TimeInterval = 0.12
     var minimumBackswingPeakRotation = 1.0
     var minimumDownswingPeakRotation = 1.8
-    var minimumTransitionDropFraction = 0.72
+    // Transition is primarily detected from angular-velocity direction reversal.
+    // Magnitude is only a fallback for swings whose reversal is noisy.
+    var transitionDirectionWindowSamples = 8
+    var minimumDirectionalRotation = 0.35
+    var maximumTransitionDirectionCosine = -0.12
+    var transitionDirectionWeight = 0.78
+    var transitionValleyWeight = 0.22
+    var transitionMagnitudeFallbackFraction = 0.88
 
     var impactSearchStartFraction = 0.45
     var impactRegionHalfWidthSeconds: TimeInterval = 0.06
