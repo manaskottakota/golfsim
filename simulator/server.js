@@ -71,6 +71,10 @@ function serveStatic(request, response) {
 }
 
 const server = http.createServer(async (request, response) => {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
   if (request.url.startsWith("/api/qr.png")) {
     try {
       const png = await QRCode.toBuffer(webPairingURL(request), { errorCorrectionLevel: "M", margin: 2, width: 360, type: "png" });
