@@ -1,4 +1,4 @@
-const REALTIME_ORIGIN="https://game-server-v3-production-ed2c.up.railway.app";
+const REALTIME_ORIGIN="https://game-server-v4-production.up.railway.app";
 const $=s=>document.querySelector(s);
 const params=new URLSearchParams(location.search);let session=params.get("session"),token=params.get("token"),playerName="";
 const clubs=["driver","3_wood","5_wood","hybrid","4_iron","5_iron","6_iron","7_iron","8_iron","9_iron","pitching_wedge","gap_wedge","sand_wedge","lob_wedge","putter"];
