@@ -56,20 +56,27 @@ struct SwingAnalyzer: Sendable {
 
         let minimumTransitionTime = samples[primary.lowerBound].motionTimestamp + thresholds.minimumBackswingDuration
         let latestTransitionTime = samples[impactIndex].motionTimestamp - thresholds.minimumDownswingDuration
-        let transitionCandidates = primary.lowerBound..<impactIndex
-        guard let transitionIndex = transitionCandidates
-            .filter({ samples[$0].motionTimestamp >= minimumTransitionTime && samples[$0].motionTimestamp <= latestTransitionTime })
-            .min(by: { smoothRotation[$0] < smoothRotation[$1] })
-        else { return .failure(.noMeaningfulTransition) }
+        let transitionCandidates = (primary.lowerBound..<impactIndex).filter {
+            samples[$0].motionTimestamp >= minimumTransitionTime
+                && samples[$0].motionTimestamp <= latestTransitionTime
+        }
+        guard !transitionCandidates.isEmpty else { return .failure(.noMeaningfulTransition) }
+
+        // A real golf transition is a reversal of angular-velocity direction, not
+        // necessarily a deep dip in total rotation-rate magnitude. Score each
+        // candidate using direction reversal first and magnitude valley second.
+        let transitionIndex = transitionCandidates.max { left, right in
+            transitionScore(index: left, samples: samples, smoothRotation: smoothRotation)
+                < transitionScore(index: right, samples: samples, smoothRotation: smoothRotation)
+        } ?? transitionCandidates[0]
 
         let backswingPeak = smoothRotation[primary.lowerBound...transitionIndex].max() ?? 0
         let downswingPeak = smoothRotation[transitionIndex...impactIndex].max() ?? 0
-        let referencePeak = min(backswingPeak, downswingPeak)
         guard
             backswingPeak >= thresholds.minimumBackswingPeakRotation,
             downswingPeak >= thresholds.minimumDownswingPeakRotation,
-            referencePeak > 0,
-            smoothRotation[transitionIndex] <= referencePeak * thresholds.minimumTransitionDropFraction
+            hasDirectionReversal(near: transitionIndex, samples: samples)
+                || smoothRotation[transitionIndex] <= min(backswingPeak, downswingPeak) * thresholds.transitionMagnitudeFallbackFraction
         else { return .failure(.noMeaningfulTransition) }
 
         let takeawayIndex = primary.lowerBound
@@ -145,6 +152,61 @@ struct SwingAnalyzer: Sendable {
             diagnostics: diagnostics,
             signalTimeline: signalTimeline
         ))
+    }
+
+    private func transitionScore(index: Int, samples: [MotionSample], smoothRotation: [Double]) -> Double {
+        let radius = thresholds.transitionDirectionWindowSamples
+        let beforeStart = max(0, index - radius)
+        let afterEnd = min(samples.count - 1, index + radius)
+        guard beforeStart < index, index < afterEnd else { return -Double.greatestFiniteMagnitude }
+
+        let before = averageRotationVector(samples[beforeStart..<index])
+        let after = averageRotationVector(samples[(index + 1)...afterEnd])
+        let beforeMagnitude = vectorMagnitude(before)
+        let afterMagnitude = vectorMagnitude(after)
+        let reversal: Double
+        if beforeMagnitude > 0.15, afterMagnitude > 0.15 {
+            let cosine = dot(before, after) / (beforeMagnitude * afterMagnitude)
+            reversal = max(0, -cosine)
+        } else {
+            reversal = 0
+        }
+        let localPeak = max(
+            smoothRotation[beforeStart...index].max() ?? 0,
+            smoothRotation[index...afterEnd].max() ?? 0
+        )
+        let valley = localPeak > 0 ? max(0, 1 - smoothRotation[index] / localPeak) : 0
+        return reversal * thresholds.transitionDirectionWeight + valley * thresholds.transitionValleyWeight
+    }
+
+    private func hasDirectionReversal(near index: Int, samples: [MotionSample]) -> Bool {
+        let radius = thresholds.transitionDirectionWindowSamples
+        let beforeStart = max(0, index - radius)
+        let afterEnd = min(samples.count - 1, index + radius)
+        guard beforeStart < index, index < afterEnd else { return false }
+        let before = averageRotationVector(samples[beforeStart..<index])
+        let after = averageRotationVector(samples[(index + 1)...afterEnd])
+        let a = vectorMagnitude(before)
+        let b = vectorMagnitude(after)
+        guard a >= thresholds.minimumDirectionalRotation, b >= thresholds.minimumDirectionalRotation else { return false }
+        return dot(before, after) / (a * b) <= thresholds.maximumTransitionDirectionCosine
+    }
+
+    private func averageRotationVector<S: Sequence>(_ samples: S) -> (Double, Double, Double) where S.Element == MotionSample {
+        var x = 0.0, y = 0.0, z = 0.0, count = 0.0
+        for sample in samples {
+            x += sample.rotationRateX; y += sample.rotationRateY; z += sample.rotationRateZ; count += 1
+        }
+        guard count > 0 else { return (0, 0, 0) }
+        return (x / count, y / count, z / count)
+    }
+
+    private func vectorMagnitude(_ v: (Double, Double, Double)) -> Double {
+        (v.0 * v.0 + v.1 * v.1 + v.2 * v.2).squareRoot()
+    }
+
+    private func dot(_ a: (Double, Double, Double), _ b: (Double, Double, Double)) -> Double {
+        a.0 * b.0 + a.1 * b.1 + a.2 * b.2
     }
 
     private func movingAverage(_ values: [Double], width: Int) -> [Double] {
