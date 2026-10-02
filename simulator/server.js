@@ -20,6 +20,10 @@ const session = {
   hasConnected: false,
   telemetryReceived: 0,
   lastTelemetryAt: null,
+  latestPose: null,
+  latestClub: null,
+  latestSwingStatus: null,
+  latestSwingResult: null,
 };
 
 function pairingURL() {
@@ -78,6 +82,10 @@ const server = http.createServer(async (request, response) => {
       hasConnected: session.hasConnected,
       telemetryReceived: session.telemetryReceived || 0,
       lastTelemetryAt: session.lastTelemetryAt || null,
+      latestPose: session.latestPose,
+      latestClub: session.latestClub,
+      latestSwingStatus: session.latestSwingStatus,
+      latestSwingResult: session.latestSwingResult,
     }));
     return;
   }
@@ -184,6 +192,7 @@ webSocketServer.on("connection", (socket, request, role) => {
         return;
       }
       if (message.type === "livePose") {
+        session.latestPose = message.payload;
         session.telemetryReceived += 1;
         session.lastTelemetryAt = Date.now();
         if (session.telemetryReceived === 1) {
@@ -191,6 +200,12 @@ webSocketServer.on("connection", (socket, request, role) => {
         } else if (session.telemetryReceived % 300 === 0) {
           console.log(`[telemetry] ${session.telemetryReceived} livePose packets received`);
         }
+      } else if (message.type === "clubSelection") {
+        session.latestClub = message.payload;
+      } else if (message.type === "swingStatus") {
+        session.latestSwingStatus = message.payload;
+      } else if (message.type === "swingResult") {
+        session.latestSwingResult = message.payload;
       }
       broadcast(message.type, message.payload);
     } else {
