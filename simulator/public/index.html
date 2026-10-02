@@ -58,7 +58,7 @@
 </main>
 <script>
 (function () {
-  const mobile = /iPhone|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 700);
+  const mobile = /iPhone|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth <= 1024) || matchMedia("(pointer: coarse)").matches;
   if (mobile) {
     const query = location.search || "";
     location.replace("/controller.html" + query);
