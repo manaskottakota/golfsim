@@ -56,6 +56,15 @@
     </aside>
   </div>
 </main>
+<script>
+(function () {
+  const mobile = /iPhone|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 700);
+  if (mobile) {
+    const query = location.search || "";
+    location.replace("/controller.html" + query);
+  }
+})();
+</script>
 <script src="/app.js"></script>
 </body>
 </html>
