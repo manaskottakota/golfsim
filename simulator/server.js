@@ -18,6 +18,8 @@ const session = {
   controllerAccepted: false,
   displays: new Set(),
   hasConnected: false,
+  telemetryReceived: 0,
+  lastTelemetryAt: null,
 };
 
 function pairingURL() {
@@ -52,7 +54,7 @@ function serveStatic(request, response) {
     }
     const extension = path.extname(filePath);
     const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml" };
-    response.writeHead(200, { "Content-Type": `${contentTypes[extension] || "application/octet-stream"}; charset=utf-8` });
+    response.writeHead(200, { "Content-Type": `${contentTypes[extension] || "application/octet-stream"}; charset=utf-8`, "Cache-Control": "no-store" });
     response.end(data);
   });
 }
@@ -66,6 +68,17 @@ const server = http.createServer(async (request, response) => {
     } catch (error) {
       response.writeHead(500).end("QR generation failed");
     }
+    return;
+  }
+  if (request.url === "/api/state") {
+    response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    response.end(JSON.stringify({
+      sessionID: session.id,
+      connected: session.controllerAccepted,
+      hasConnected: session.hasConnected,
+      telemetryReceived: session.telemetryReceived || 0,
+      lastTelemetryAt: session.lastTelemetryAt || null,
+    }));
     return;
   }
   if (request.url === "/api/session") {
@@ -86,11 +99,15 @@ server.on("upgrade", (request, socket, head) => {
     socket.destroy();
     return;
   }
-  if (url.searchParams.get("session") !== session.id) {
+  if (url.pathname === "/controller" && url.searchParams.get("session") !== session.id) {
+    console.log("[ws] rejected iPhone controller: session mismatch");
     socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
     socket.destroy();
     return;
   }
+  // The browser display is served by this same simulator process, so it does not
+  // need the controller's QR/session credential. Keeping /display same-origin
+  // makes reconnects reliable even if the page was opened before a server restart.
   if (url.pathname === "/controller" && url.searchParams.get("token") !== session.token) {
     socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
     socket.destroy();
@@ -165,6 +182,15 @@ webSocketServer.on("connection", (socket, request, role) => {
       if (!session.controllerAccepted) {
         send(socket, "error", { message: "Send phoneHello before telemetry." });
         return;
+      }
+      if (message.type === "livePose") {
+        session.telemetryReceived += 1;
+        session.lastTelemetryAt = Date.now();
+        if (session.telemetryReceived === 1) {
+          console.log("[telemetry] first livePose received from iPhone");
+        } else if (session.telemetryReceived % 300 === 0) {
+          console.log(`[telemetry] ${session.telemetryReceived} livePose packets received`);
+        }
       }
       broadcast(message.type, message.payload);
     } else {
