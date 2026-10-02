@@ -1,17 +1,64 @@
-# golfsim development
+# thegolfgame
 
-golfsim currently consists of a native iPhone controller and a minimal laptop development display. The phone keeps capturing Core Motion at approximately 100 Hz. While paired, it sends only the newest pose at approximately 30 Hz over a local WebSocket; raw samples remain on the phone for recording and future analysis.
+**thegolfgame** is a phone-powered golf swing game. Open the driving range on a laptop, scan the pairing QR code with an iPhone, and use the phone as the club controller. No iPhone app installation is required for the web experience.
 
-## Requirements
+**Live site:** https://golfsim-rust.vercel.app/
 
-- A Mac or laptop with Node.js 20 or newer.
-- An iPhone and laptop connected to the same local network.
-- Xcode capable of building the included iOS project.
-- Firewall permission for Node.js to accept incoming connections on the selected port.
+## How it works
 
-## 1. Start the laptop simulator
+The project is split into two deployed pieces:
 
-From the repository root:
+- **Vercel** serves the public driving-range UI and the mobile Safari controller.
+- **Railway** runs the persistent Node.js/WebSocket backend used for realtime pairing and motion data.
+- The laptop creates a session and displays a QR code.
+- Scanning the QR opens the Vercel mobile controller with that session's credentials.
+- The iPhone and laptop then connect to the same Railway WebSocket backend.
+
+This keeps the UI deployable as a normal website while Railway handles the persistent connection that a serverless Vercel deployment cannot reliably maintain.
+
+## Playing
+
+1. Open https://golfsim-rust.vercel.app/ on a laptop.
+2. Scan the displayed QR code using the normal iPhone Camera app.
+3. Safari opens the mobile **thegolfgame** controller. No native app is required.
+4. Select a club on the phone.
+5. Allow motion access when prompted.
+6. Hold the phone upright, approximately perpendicular to the ground, with the screen facing the swing direction.
+7. Tap **Set Address** while holding the phone still.
+8. Tap **Start Swing** and make a complete swing.
+9. The laptop receives the result and displays the shot on the driving range.
+
+## Game model
+
+The phone's motion sensors drive a game-oriented swing model rather than claiming to measure true club or ball physics. Swing motion influences:
+
+- **Power** from rotational speed and acceleration
+- **Tempo** from the timing of the swing
+- **Quality** from tempo, completeness, and analysis confidence
+- **Carry and total distance** using the selected club plus the swing traits
+- **Shot shape and dispersion** as game outcomes
+
+The selected club provides the baseline distance and launch characteristics, while the captured swing changes the resulting shot.
+
+## Web architecture
+
+```text
+Laptop browser (Vercel) ──┐
+                          ├── WebSocket ── Railway realtime server
+iPhone Safari (Vercel) ───┘
+```
+
+The desktop frontend requests a pairing session from Railway. Railway generates the session ID and token, but the QR points the phone to the Vercel-hosted `/controller.html` page. The controller then connects back to Railway for realtime communication.
+
+Current realtime backend:
+
+```text
+https://game-server-v2-production-934e.up.railway.app
+```
+
+## Local development
+
+The simulator can still run locally:
 
 ```bash
 cd simulator
@@ -19,96 +66,28 @@ npm install
 npm start
 ```
 
-Open <http://localhost:8080> on the laptop. The terminal prints both the page URL and the LAN address encoded into the QR code. A new server process creates a new session and one-time development token. The server refuses to create a QR containing `localhost` or a loopback address because an iPhone cannot reach those addresses on the laptop.
+Then open `http://localhost:8080`. The local Node server serves the simulator and handles the WebSocket connection.
 
-The server prefers a private, non-loopback IPv4 address. If that is not the address reachable by the iPhone, restart it with the correct Wi-Fi address:
-
-```bash
-GOLFSIM_HOST=192.168.1.25 npm start
-```
-
-Find the laptop's address in macOS **System Settings → Wi-Fi → Details → TCP/IP**, or run:
-
-```bash
-ipconfig getifaddr en0
-```
-
-Use a different port if 8080 is occupied:
-
-```bash
-PORT=8081 GOLFSIM_HOST=192.168.1.25 npm start
-```
-
-Keep this terminal process running. Reloading the web page keeps the same session; restarting Node creates a new QR code.
-
-## 2. Run and pair the iPhone app
-
-1. Open `golfsim.xcodeproj` in Xcode.
-2. Select your development team if Xcode requests signing configuration.
-3. Select a physical iPhone as the run destination and run the `golfsim` scheme.
-4. Open the **Swing** tab.
-5. Tap **Pair with Simulator** in the Simulator card at the top of the Swing screen. Do not use the standalone iOS Camera app; pairing is handled by golfsim's in-app scanner.
-6. Approve camera access so the app can scan the QR code.
-7. Scan the QR code displayed at `http://localhost:8080` on the laptop.
-8. Approve the iOS **Local Network** prompt if it appears.
-
-The iPhone card and laptop top bar should both show **Connected**. The QR panel disappears to reveal the driving range. Select another club on the phone and verify that the laptop's Club rail highlights it. Rotate the phone and verify that the compact Live Controller phone and quaternion/rotation-rate readouts move immediately. The Connection panel also reports the received update rate and an approximate send-to-browser latency.
-
-To capture an analyzed swing:
-
-1. Hold the phone upright and still at address, with its screen facing the direction of the swing.
-2. Tap **Set Address** and remain still for about 0.75 seconds.
-3. Wait for the green **Ready** confirmation.
-4. Tap **Start Swing**, then make one complete swing.
-5. After the existing six-second capture finishes, the phone analyzes the raw approximately 100 Hz recording offline.
-6. Review durations, tempo, sensor peaks, and the raw/smoothed validation timeline on the phone and laptop.
-
-The exported swing JSON retains every raw sample and now includes a successful analysis result. The first-pass phase detector is deterministic but requires tuning with real swings; its synthetic tests verify software behavior, not golf accuracy.
-
-Use **Disconnect** on the phone to close the controller connection. **Reconnect** retries the last scanned session while the same Node server is still running. Scan the new QR after restarting the server because its session and token change.
-
-## 3. Address-position convention
-
-The phone represents the clubface. Hold it upright, with the screen approximately perpendicular to the ground and facing the intended swing direction. The passive alignment guide checks only whether gravity lies mostly in the plane of the screen; gravity cannot determine which horizontal direction the screen faces. **Set Address** separately captures the stable reference quaternion that defines heading. Live laptop pose remains absolute Core Motion attitude, while offline swing orientation metrics are address-relative.
-
-## Network permissions and development security
-
-The app includes camera and local-network usage descriptions. This development build permits an insecure `ws://` connection because the server is running directly on the LAN. The QR token prevents an accidental unauthenticated controller from joining, but traffic is not encrypted and the laptop display endpoint is intended only for a trusted development network. Production pairing will require TLS, expiration, stronger session lifecycle rules, and likely a signaling/relay service.
-
-If pairing fails:
-
-- confirm both devices are on the same non-isolated Wi-Fi network;
-- confirm `GOLFSIM_HOST` is the laptop address reachable from the phone;
-- allow incoming Node.js connections in the laptop firewall;
-- disable VPNs that prevent LAN routing;
-- restart Node and scan the newly generated code;
-- avoid guest Wi-Fi networks that isolate clients.
-
-## Checks
-
-Run protocol/parser tests from the repository root:
+Useful checks:
 
 ```bash
 swift test
-```
 
-Run JavaScript syntax checks after installing laptop dependencies:
-
-```bash
 cd simulator
 npm run check
 npm test
 ```
 
-## Known limitations
+## Native iOS code
 
-- One iPhone controller is supported per server process.
-- Pairing is local-development-only and uses unencrypted WebSocket traffic.
-- Reconnection is user initiated; completed swings are not queued for delivery yet.
-- Live pose is absolute Core Motion attitude, not calibrated address-relative orientation.
-- Browser and phone clocks provide only approximate latency.
-- The phone controller graphic is a diagnostics view, not a golf course.
-- The driving range is a visual foundation only; the ball does not launch yet.
-- First-pass swing analysis is intended for validation and threshold tuning; it does not calculate ball flight.
-- No shot model, ball physics, or 3D golf environment is implemented.
-- Raw 100 Hz motion remains local and is not continuously sent to the laptop.
+The repository also contains the original native Swift/SwiftUI controller and swing-analysis pipeline. It uses Core Motion to record high-frequency motion data and includes the existing swing-phase and metric analysis work.
+
+That native analysis is intentionally kept separate from the current web game's simplified game layer and remains available for future development.
+
+## Current limitations
+
+- The deployed backend currently uses one in-memory game session per Railway server process.
+- The motion-derived results are game mechanics, not measurements of real clubhead speed or ball-flight physics.
+- Safari requires motion permission before sensor data is available.
+- A server restart creates a new in-memory session.
+- The current architecture is intended for the project/demo experience rather than many simultaneous public games.
