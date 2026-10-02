@@ -20,7 +20,8 @@ struct SwingCaptureView: View {
 
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
+                    mobileBrand
                     SimulatorConnectionView()
                     ClubPickerView(clubSelection: clubSelection)
                     AlignmentGuideView(latestSample: motion.latestSample)
@@ -35,9 +36,9 @@ struct SwingCaptureView: View {
                 }
                 .padding()
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Swing")
-            .navigationBarTitleDisplayMode(.large)
+            .background(Color(red: 0.025, green: 0.045, blue: 0.035).ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+            .tint(Color(red: 0.47, green: 0.88, blue: 0.58))
             .onAppear {
                 appState.setSwingSessionActive(true)
                 UIApplication.shared.isIdleTimerDisabled = true
@@ -65,6 +66,27 @@ struct SwingCaptureView: View {
                 Text(alertMessage ?? "")
             }
         }
+    }
+
+    private var mobileBrand: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("thegolfgame")
+                    .font(.system(size: 30, weight: .black, design: .rounded))
+                    .tracking(-1.4)
+                    .foregroundStyle(.white)
+                Text("IPHONE CONTROLLER")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(Color(red: 0.47, green: 0.88, blue: 0.58))
+            }
+            Spacer()
+            Circle()
+                .fill(motion.isStreaming ? Color.green : Color.orange)
+                .frame(width: 9, height: 9)
+                .shadow(color: motion.isStreaming ? .green.opacity(0.7) : .orange.opacity(0.7), radius: 8)
+        }
+        .padding(.top, 6)
     }
 
     private var captureControls: some View {
@@ -112,7 +134,9 @@ struct SwingCaptureView: View {
             }
         }
         .padding()
-        .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.10)) }
+        .foregroundStyle(.white)
     }
 
     private func swingSummary(_ swing: SwingRecording) -> some View {
