@@ -26,13 +26,20 @@ const session = {
   latestSwingResult: null,
 };
 
-function pairingURL() {
+function nativePairingURL() {
   return createPairingURL({
     host: advertisedHost,
     port: PORT,
     sessionID: session.id,
     token: session.token,
   });
+}
+
+function webPairingURL(request) {
+  const configuredOrigin = process.env.GOLFSIM_PUBLIC_ORIGIN?.replace(/\/$/, "");
+  const origin = configuredOrigin || `http://${request.headers.host || `${advertisedHost}:${PORT}`}`;
+  const parameters = new URLSearchParams({ session: session.id, token: session.token });
+  return `${origin}/controller.html?${parameters.toString()}`;
 }
 
 function send(socket, type, payload) {
@@ -66,7 +73,7 @@ function serveStatic(request, response) {
 const server = http.createServer(async (request, response) => {
   if (request.url.startsWith("/api/qr.png")) {
     try {
-      const png = await QRCode.toBuffer(pairingURL(), { errorCorrectionLevel: "M", margin: 2, width: 360, type: "png" });
+      const png = await QRCode.toBuffer(webPairingURL(request), { errorCorrectionLevel: "M", margin: 2, width: 360, type: "png" });
       response.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
       response.end(png);
     } catch (error) {
@@ -90,10 +97,10 @@ const server = http.createServer(async (request, response) => {
     return;
   }
   if (request.url === "/api/session") {
-    const pairURL = pairingURL();
+    const pairURL = webPairingURL(request);
     const qrDataURL = await QRCode.toDataURL(pairURL, { errorCorrectionLevel: "M", margin: 2, width: 360 });
     response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    response.end(JSON.stringify({ sessionID: session.id, pairingURL: pairURL, qrDataURL }));
+    response.end(JSON.stringify({ sessionID: session.id, pairingURL: pairURL, nativePairingURL: nativePairingURL(), qrDataURL }));
     return;
   }
   serveStatic(request, response);
@@ -239,5 +246,5 @@ server.on("close", () => clearInterval(heartbeat));
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`golfsim laptop simulator: http://localhost:${PORT}`);
   console.log(`Phone pairing address: ws://${advertisedHost}:${PORT}`);
-  console.log("Open the simulator URL on this laptop, then scan its QR code in the iPhone app.");
+  console.log("Open the simulator URL, then scan its QR code with the iPhone Camera for the zero-install Safari controller.");
 });
