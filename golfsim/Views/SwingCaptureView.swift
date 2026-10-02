@@ -24,7 +24,6 @@ struct SwingCaptureView: View {
                     mobileBrand
                     SimulatorConnectionView()
                     ClubPickerView(clubSelection: clubSelection)
-                    AlignmentGuideView(latestSample: motion.latestSample)
                     AddressCalibrationView()
                     captureControls
                     if let result = appState.swingAnalysis.latestResult {
