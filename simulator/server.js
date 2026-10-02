@@ -2,7 +2,9 @@ const crypto=require("node:crypto"),http=require("node:http"),os=require("node:o
 const {WebSocketServer,WebSocket}=require("ws");
 const {PROTOCOL_VERSION,chooseAdvertisedHost}=require("./server-config");
 const PORT=Number(process.env.PORT||8080),PUBLIC_DIRECTORY=path.join(__dirname,"public"),advertisedHost=chooseAdvertisedHost(os.networkInterfaces(),process.env.GOLFSIM_HOST);
-const rooms=new Map(),codes=new Map(),MAX_PLAYERS=4,HOLES_PER_GAME=5;\nconst clamp=(v,a,b)=>Math.max(a,Math.min(b,v));\nfunction makeHoles(){const bands=[[70,105],[105,140],[140,175],[175,215],[215,255]];return bands.sort(()=>Math.random()-.5).map(([a,b],i)=>({number:i+1,yards:crypto.randomInt(a,b+1),lateral:crypto.randomInt(-12,13)}))}
+const rooms=new Map(),codes=new Map(),MAX_PLAYERS=4,HOLES_PER_GAME=5;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function makeHoles(){const bands=[[70,105],[105,140],[140,175],[175,215],[215,255]];return bands.sort(()=>Math.random()-.5).map(([a,b],i)=>({number:i+1,yards:crypto.randomInt(a,b+1),lateral:crypto.randomInt(-12,13)}))}
 function code(){let c;do c=String(crypto.randomInt(100000,1000000));while(codes.has(c));return c}
 function makeRoom(){const r={id:crypto.randomBytes(12).toString("base64url"),token:crypto.randomBytes(24).toString("base64url"),code:code(),controllers:new Map(),displays:new Set(),nextPlayer:1,latest:{},game:{phase:"lobby",holes:[],holeIndex:0,turnIndex:0,turnOrder:[],shots:{},scores:{},winner:null}};rooms.set(r.id,r);codes.set(r.code,r.id);return r}
 function publicOrigin(req){return process.env.GOLFSIM_PUBLIC_ORIGIN?.replace(/\/$/,"")||`http://${req.headers.host||`${advertisedHost}:${PORT}`}`}
@@ -26,10 +28,13 @@ if(u.pathname==="/api/qr.png"){const r=rooms.get(u.searchParams.get("session"));
 if(u.pathname==="/api/state"){const id=u.searchParams.get("session");if(!id){json(res,{ok:true,rooms:rooms.size});return}const r=rooms.get(id);if(!r){json(res,{error:"Room not found"},404);return}json(res,{...roomState(r),...r.latest});return}
 serveStatic(req,res)});
 const wss=new WebSocketServer({noServer:true});
-server.on("upgrade",(req,socket,head)=>{const u=new URL(req.url,`http://${req.headers.host}`),role=u.pathname;if(!["/controller","/display"].includes(role)){socket.destroy();return}const r=rooms.get(u.searchParams.get("session"));if(!r||(role==="/controller"&&u.searchParams.get("token")!==r.token)){socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");socket.destroy();return}wss.handleUpgrade(req,socket,head,ws=>wss.emit("connection",ws,req,{role,room:r}))});
+server.on("upgrade",(req,socket,head)=>{const u=new URL(req.url,`http://${req.headers.host}`),role=u.pathname;if(!["/controller","/display"].includes(role)){socket.destroy();return}const r=rooms.get(u.searchParams.get("session"));if(!r||(role==="/controller"&&u.searchParams.get("token")!==r.token)){socket.write("HTTP/1.1 401 Unauthorized\r
+\r
+");socket.destroy();return}wss.handleUpgrade(req,socket,head,ws=>wss.emit("connection",ws,req,{role,room:r}))});
 wss.on("connection",(socket,req,{role,room:r})=>{socket.isAlive=true;socket.on("pong",()=>socket.isAlive=true);
 if(role==="/display"){r.displays.add(socket);send(socket,"displayState",roomState(r));socket.on("message",b=>{let m;try{m=JSON.parse(b.toString())}catch{return}if(m.protocolVersion===PROTOCOL_VERSION&&m.type==="startGame")startGame(r)});socket.on("close",()=>r.displays.delete(socket));return}
-if(r.game.phase!=="lobby"||r.controllers.size>=MAX_PLAYERS){send(socket,"roomUnavailable",{message:"Room is full or game already started."});socket.close();return}\nconst player={id:crypto.randomBytes(6).toString("base64url"),name:`Player ${r.nextPlayer++}`,club:"driver",socket};r.controllers.set(player.id,player);
+if(r.game.phase!=="lobby"||r.controllers.size>=MAX_PLAYERS){send(socket,"roomUnavailable",{message:"Room is full or game already started."});socket.close();return}
+const player={id:crypto.randomBytes(6).toString("base64url"),name:`Player ${r.nextPlayer++}`,club:"driver",socket};r.controllers.set(player.id,player);
 socket.on("message",b=>{let m;try{m=JSON.parse(b.toString())}catch{return}if(m.protocolVersion!==PROTOCOL_VERSION||!m.type)return;
 if(m.type==="phoneHello"){if(m.payload?.playerName?.trim())player.name=m.payload.playerName.trim().slice(0,24);send(socket,"connectionAccepted",{sessionID:r.id,roomCode:r.code,playerID:player.id,playerName:player.name});broadcast(r,"displayState",roomState(r));return}
 if(m.type==="ping"){send(socket,"pong",m.payload);return}
