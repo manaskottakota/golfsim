@@ -62,10 +62,23 @@ final class SimulatorConnectionService {
             guard !Task.isCancelled, self?.state == .connecting else { return }
             self?.handleConnectionFailure(SimulatorConnectionFailure.handshakeTimedOut)
         }
-        send(.phoneHello(PhoneHelloPayload(
+        let hello = SimulatorMessage.phoneHello(PhoneHelloPayload(
             deviceName: UIDevice.current.name,
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
-        )))
+        ))
+        do {
+            let data = try encoder.encode(hello)
+            Task { [weak self] in
+                do {
+                    try await webSocketTask.send(.data(data))
+                } catch {
+                    guard self?.task === webSocketTask else { return }
+                    await self?.handleConnectionFailure(error)
+                }
+            }
+        } catch {
+            handleConnectionFailure(error)
+        }
     }
 
     func disconnect() {
