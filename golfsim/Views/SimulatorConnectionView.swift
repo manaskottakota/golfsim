@@ -55,7 +55,9 @@ struct SimulatorConnectionView: View {
             }
         }
         .padding()
-        .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.10)) }
+        .foregroundStyle(.white)
         .sheet(isPresented: $isShowingScanner) {
             NavigationStack {
                 QRCodeScannerView(
