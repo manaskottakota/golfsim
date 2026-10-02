@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07100b"><title>thegolfgame controller</title><link rel="stylesheet" href="/controller.css"></head>
+<body><main class="mobile-shell">
+<header><div><h1>thegolfgame</h1><span>IPHONE CONTROLLER</span></div><i id="connection-dot"></i></header>
+<section class="card"><label>SELECT CLUB</label><div id="clubs" class="clubs"></div><strong id="selected-club">Driver</strong></section>
+<section class="card setup"><label>HOLD PHONE UPRIGHT</label><div class="instruction"><div class="phone-icon">▯</div><p>Hold the phone upright and still with the screen facing the direction of your swing.</p></div><button id="enable-motion">Enable Motion</button><button id="set-address" disabled>Set Address</button><small id="motion-note">Motion access is required once in Safari.</small></section>
+<section class="card swing"><label>SWING</label><h2 id="swing-state">Set address first</h2><p id="swing-detail">Keep the phone upright and still, then tap Set Address.</p><button id="start-swing" class="primary" disabled>Start Swing</button></section>
+<section class="status"><span id="connection-text">Connecting…</span><span id="sample-rate">— Hz</span></section>
+</main><script src="/controller.js"></script></body></html>
