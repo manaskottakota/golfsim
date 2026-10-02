@@ -10,7 +10,23 @@ function clubLabel(c){return (c||"—").replaceAll("_"," ").replace(/\b\w/g,m=>m
 function selectClub(c){elements.clubItems.forEach(i=>i.classList.toggle("selected",i.dataset.club===c));if(elements.shotClub)elements.shotClub.textContent=clubLabel(c);}
 const states={waiting_for_address:["Waiting for address","Tap Set Address on iPhone."],address_calibrated:["Address calibrated","Ready to swing."],waiting_for_swing:["Waiting for swing…","Make one complete swing."],analyzing:["Analyzing swing","Processing 100 Hz motion data."],swing_complete:["Swing complete","Shot received."],invalid:["Invalid swing","Try another complete swing."]};
 function handleSwingStatus(p){const [t,m]=states[p.state]||["Swing capture","Waiting for iPhone."];elements.swingStatus.textContent=t;elements.swingMessage.textContent=p.message||m;elements.swingRing.classList.toggle("analyzing",p.state==="analyzing");if(p.state!=="swing_complete")elements.swingResult.hidden=true;}
-const clubProfiles={driver:[245,12,36],3_wood:[225,13,34],5_wood:[210,15,32],hybrid:[195,17,30],4_iron:[185,18,29],5_iron:[175,19,28],6_iron:[165,20,27],7_iron:[155,21,26],8_iron:[145,23,25],9_iron:[132,25,24],pitching_wedge:[118,28,23],gap_wedge:[105,30,22],sand_wedge:[90,32,21],lob_wedge:[72,35,20],putter:[20,1,1]};
+const clubProfiles={
+  "driver":[245,12,36],
+  "3_wood":[225,13,34],
+  "5_wood":[210,15,32],
+  "hybrid":[195,17,30],
+  "4_iron":[185,18,29],
+  "5_iron":[175,19,28],
+  "6_iron":[165,20,27],
+  "7_iron":[155,21,26],
+  "8_iron":[145,23,25],
+  "9_iron":[132,25,24],
+  "pitching_wedge":[118,28,23],
+  "gap_wedge":[105,30,22],
+  "sand_wedge":[90,32,21],
+  "lob_wedge":[72,35,20],
+  "putter":[20,1,1]
+};
 function interpretShot(r){const [base,loft,baseApex]=clubProfiles[r.club]||clubProfiles["7_iron"];const speed=clamp((r.peakRotationalVelocity||5)/7.5,.58,1.35);const accel=clamp((r.peakAcceleration||1.2)/2,.72,1.22);const quality=clamp(r.confidence||.65,.4,1);const tempoPenalty=clamp(1-Math.abs((r.tempoRatio||3)-3)*.055,.78,1);const carry=Math.round(base*speed*.72+base*accel*.13+base*quality*.15);const launch=clamp(loft+(1-accel)*3,1,42);const apex=Math.round(baseApex*speed*clamp(launch/Math.max(loft,1),.75,1.3));const orientation=r.maximumRelativeOrientationChangeDegrees||0;const signedSeed=Math.sin(orientation*Math.PI/180*2.7);const curve=clamp(signedSeed*18+(3-(r.tempoRatio||3))*5,-35,35);const direction=clamp(signedSeed*7,-12,12);const abs=Math.abs(curve);const shape=abs<5?"Straight":curve<0?(abs>18?"Hook":"Draw"):(abs>18?"Slice":"Fade");const total=Math.round(carry+(r.club.includes("wedge")?4:Math.max(7,carry*.07)));return{carry,total,launch:Math.round(launch),apex,direction,curve,shape};}
 function trajectory(s){const start={x:500,y:635};const distance=clamp(s.carry/260,0.12,1);const endY=635-distance*490;const lateral=(s.direction+s.curve)*7;const endX=clamp(500+lateral,110,890);const controlX=clamp(500+s.direction*5-s.curve*4,120,880);const rise=clamp(150+s.apex*2.6,170,330);const controlY=clamp(635-rise,170,500);return{start,end:{x:endX,y:endY},control:{x:controlX,y:controlY},d:`M ${start.x} ${start.y} Q ${controlX} ${controlY} ${endX} ${endY}`};}
 function animateShot(s){cancelAnimationFrame(animationFrame);const t=trajectory(s);elements.shotPath.setAttribute("d",t.d);elements.shotPath.classList.remove("draw");void elements.shotPath.getBoundingClientRect();elements.shotPath.classList.add("draw");elements.landingMark.setAttribute("cx",t.end.x);elements.landingMark.setAttribute("cy",t.end.y);elements.landingMark.classList.remove("show");const start=performance.now(),duration=1500;function frame(now){const p=clamp((now-start)/duration,0,1),u=1-p;const x=u*u*t.start.x+2*u*p*t.control.x+p*p*t.end.x,y=u*u*t.start.y+2*u*p*t.control.y+p*p*t.end.y;elements.flightBall.setAttribute("cx",x);elements.flightBall.setAttribute("cy",y);elements.flightBall.classList.add("airborne");if(p<1)animationFrame=requestAnimationFrame(frame);else{elements.flightBall.classList.remove("airborne");elements.landingMark.classList.add("show");}}animationFrame=requestAnimationFrame(frame);}
