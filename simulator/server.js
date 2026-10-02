@@ -1,254 +1,33 @@
-const crypto = require("node:crypto");
-const http = require("node:http");
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const QRCode = require("qrcode");
-const { WebSocketServer, WebSocket } = require("ws");
-const { PROTOCOL_VERSION, chooseAdvertisedHost, createPairingURL } = require("./server-config");
-
-const PORT = Number(process.env.PORT || 8080);
-const PUBLIC_DIRECTORY = path.join(__dirname, "public");
-
-const advertisedHost = chooseAdvertisedHost(os.networkInterfaces(), process.env.GOLFSIM_HOST);
-const session = {
-  id: crypto.randomBytes(12).toString("base64url"),
-  token: crypto.randomBytes(24).toString("base64url"),
-  controller: null,
-  controllerAccepted: false,
-  displays: new Set(),
-  hasConnected: false,
-  telemetryReceived: 0,
-  lastTelemetryAt: null,
-  latestPose: null,
-  latestClub: null,
-  latestSwingStatus: null,
-  latestSwingResult: null,
-};
-
-function nativePairingURL() {
-  return createPairingURL({
-    host: advertisedHost,
-    port: PORT,
-    sessionID: session.id,
-    token: session.token,
-  });
-}
-
-function webPairingURL(request) {
-  const configuredOrigin = process.env.GOLFSIM_PUBLIC_ORIGIN?.replace(/\/$/, "");
-  const origin = configuredOrigin || `http://${request.headers.host || `${advertisedHost}:${PORT}`}`;
-  const parameters = new URLSearchParams({ session: session.id, token: session.token });
-  return `${origin}/controller.html?${parameters.toString()}`;
-}
-
-function send(socket, type, payload) {
-  if (socket.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify({ protocolVersion: PROTOCOL_VERSION, type, payload }));
-}
-
-function broadcast(type, payload) {
-  for (const display of session.displays) send(display, type, payload);
-}
-
-function serveStatic(request, response) {
-  const requestPath = request.url === "/" ? "/index.html" : new URL(request.url, "http://localhost").pathname;
-  const filePath = path.normalize(path.join(PUBLIC_DIRECTORY, requestPath));
-  if (!filePath.startsWith(PUBLIC_DIRECTORY)) {
-    response.writeHead(403).end("Forbidden");
-    return;
-  }
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      response.writeHead(404).end("Not found");
-      return;
-    }
-    const extension = path.extname(filePath);
-    const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml" };
-    response.writeHead(200, { "Content-Type": `${contentTypes[extension] || "application/octet-stream"}; charset=utf-8`, "Cache-Control": "no-store" });
-    response.end(data);
-  });
-}
-
-const server = http.createServer(async (request, response) => {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
-  if (request.url.startsWith("/api/qr.png")) {
-    try {
-      const png = await QRCode.toBuffer(webPairingURL(request), { errorCorrectionLevel: "M", margin: 2, width: 360, type: "png" });
-      response.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
-      response.end(png);
-    } catch (error) {
-      response.writeHead(500).end("QR generation failed");
-    }
-    return;
-  }
-  if (request.url === "/api/state") {
-    response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    response.end(JSON.stringify({
-      sessionID: session.id,
-      connected: session.controllerAccepted,
-      hasConnected: session.hasConnected,
-      telemetryReceived: session.telemetryReceived || 0,
-      lastTelemetryAt: session.lastTelemetryAt || null,
-      latestPose: session.latestPose,
-      latestClub: session.latestClub,
-      latestSwingStatus: session.latestSwingStatus,
-      latestSwingResult: session.latestSwingResult,
-    }));
-    return;
-  }
-  if (request.url === "/api/session") {
-    const pairURL = webPairingURL(request);
-    const qrDataURL = await QRCode.toDataURL(pairURL, { errorCorrectionLevel: "M", margin: 2, width: 360 });
-    response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    response.end(JSON.stringify({ sessionID: session.id, pairingURL: pairURL, nativePairingURL: nativePairingURL(), qrDataURL }));
-    return;
-  }
-  serveStatic(request, response);
-});
-
-const webSocketServer = new WebSocketServer({ noServer: true });
-
-server.on("upgrade", (request, socket, head) => {
-  const url = new URL(request.url, `http://${request.headers.host}`);
-  if (!["/controller", "/display"].includes(url.pathname)) {
-    socket.destroy();
-    return;
-  }
-  if (url.pathname === "/controller" && url.searchParams.get("session") !== session.id) {
-    console.log("[ws] rejected iPhone controller: session mismatch");
-    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-    socket.destroy();
-    return;
-  }
-  // The browser display is served by this same simulator process, so it does not
-  // need the controller's QR/session credential. Keeping /display same-origin
-  // makes reconnects reliable even if the page was opened before a server restart.
-  if (url.pathname === "/controller" && url.searchParams.get("token") !== session.token) {
-    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-    socket.destroy();
-    return;
-  }
-  webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
-    webSocketServer.emit("connection", webSocket, request, url.pathname);
-  });
-});
-
-webSocketServer.on("connection", (socket, request, role) => {
-  console.log(`[ws] ${role === "/controller" ? "iPhone controller" : "browser display"} socket opened`);
-  socket.isAlive = true;
-  socket.on("pong", () => { socket.isAlive = true; });
-
-  if (role === "/display") {
-    session.displays.add(socket);
-    send(socket, "displayState", {
-      connected: session.controllerAccepted,
-      hasConnected: session.hasConnected,
-      sessionID: session.id,
-    });
-    socket.on("message", (buffer) => {
-      let message;
-      try { message = JSON.parse(buffer.toString()); } catch { return; }
-      if (message.type === "disconnectController" && session.controller) {
-        send(session.controller, "disconnect", { reason: "Disconnected from the laptop simulator." });
-        session.controller.close(1000, "Disconnected from display");
-      }
-    });
-    socket.on("close", () => session.displays.delete(socket));
-    return;
-  }
-
-  if (session.controller) {
-    send(session.controller, "disconnect", { reason: "A new iPhone connected to this session." });
-    session.controller.close(1000, "Replaced by new controller");
-  }
-  session.controller = socket;
-  session.controllerAccepted = false;
-
-  socket.on("message", (buffer, isBinary) => {
-    let message;
-    try {
-      message = JSON.parse(buffer.toString());
-    } catch {
-      send(socket, "error", { message: "Malformed JSON message." });
-      return;
-    }
-    if (message.protocolVersion !== PROTOCOL_VERSION || typeof message.type !== "string" || !message.payload) {
-      send(socket, "error", { message: "Unsupported or malformed protocol message." });
-      return;
-    }
-
-    if (message.type === "phoneHello") {
-      console.log(`[controller] phoneHello from ${message.payload.deviceName || "iPhone"}`);
-      if (typeof message.payload.deviceName !== "string" || typeof message.payload.appVersion !== "string") {
-        send(socket, "error", { message: "Malformed phoneHello payload." });
-        return;
-      }
-      session.controllerAccepted = true;
-      session.hasConnected = true;
-      send(socket, "connectionAccepted", { sessionID: session.id });
-      broadcast("phoneHello", message.payload);
-      broadcast("displayState", { connected: true, hasConnected: true, sessionID: session.id });
-      console.log("[controller] accepted; telemetry forwarding enabled");
-    } else if (message.type === "ping") {
-      send(socket, "pong", message.payload);
-    } else if (message.type === "disconnect") {
-      socket.close(1000, message.payload.reason || "Controller disconnected");
-    } else if (["livePose", "clubSelection", "swingStatus", "swingResult", "pong"].includes(message.type)) {
-      if (!session.controllerAccepted) {
-        send(socket, "error", { message: "Send phoneHello before telemetry." });
-        return;
-      }
-      if (message.type === "livePose") {
-        session.latestPose = message.payload;
-        session.telemetryReceived += 1;
-        session.lastTelemetryAt = Date.now();
-        if (session.telemetryReceived === 1) {
-          console.log("[telemetry] first livePose received from iPhone");
-        } else if (session.telemetryReceived % 300 === 0) {
-          console.log(`[telemetry] ${session.telemetryReceived} livePose packets received`);
-        }
-      } else if (message.type === "clubSelection") {
-        session.latestClub = message.payload;
-      } else if (message.type === "swingStatus") {
-        session.latestSwingStatus = message.payload;
-      } else if (message.type === "swingResult") {
-        session.latestSwingResult = message.payload;
-      }
-      broadcast(message.type, message.payload);
-    } else {
-      send(socket, "error", { message: `Message type ${message.type} is not accepted from a phone.` });
-    }
-  });
-
-  socket.on("close", (code, reason) => {
-    console.log(`[controller] socket closed (${code}) ${reason?.toString() || ""}`);
-    if (session.controller === socket) {
-      session.controller = null;
-      session.controllerAccepted = false;
-      broadcast("displayState", { connected: false, hasConnected: session.hasConnected, sessionID: session.id });
-    }
-  });
-  socket.on("error", (error) => console.error("Controller socket error:", error.message));
-});
-
-const heartbeat = setInterval(() => {
-  for (const socket of webSocketServer.clients) {
-    if (!socket.isAlive) {
-      socket.terminate();
-      continue;
-    }
-    socket.isAlive = false;
-    socket.ping();
-  }
-}, 15_000);
-
-server.on("close", () => clearInterval(heartbeat));
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`golfsim laptop simulator: http://localhost:${PORT}`);
-  console.log(`Phone pairing address: ws://${advertisedHost}:${PORT}`);
-  console.log("Open the simulator URL, then scan its QR code with the iPhone Camera for the zero-install Safari controller.");
-});
+const crypto=require("node:crypto"),http=require("node:http"),os=require("node:os"),path=require("node:path"),fs=require("node:fs"),QRCode=require("qrcode");
+const {WebSocketServer,WebSocket}=require("ws");
+const {PROTOCOL_VERSION,chooseAdvertisedHost}=require("./server-config");
+const PORT=Number(process.env.PORT||8080),PUBLIC_DIRECTORY=path.join(__dirname,"public"),advertisedHost=chooseAdvertisedHost(os.networkInterfaces(),process.env.GOLFSIM_HOST);
+const rooms=new Map(),codes=new Map();
+function code(){let c;do c=String(crypto.randomInt(100000,1000000));while(codes.has(c));return c}
+function makeRoom(){const r={id:crypto.randomBytes(12).toString("base64url"),token:crypto.randomBytes(24).toString("base64url"),code:code(),controllers:new Map(),displays:new Set(),nextPlayer:1,latest:{}};rooms.set(r.id,r);codes.set(r.code,r.id);return r}
+function publicOrigin(req){return process.env.GOLFSIM_PUBLIC_ORIGIN?.replace(/\/$/,"")||`http://${req.headers.host||`${advertisedHost}:${PORT}`}`}
+function pairURL(req,r){return `${publicOrigin(req)}/controller.html?session=${encodeURIComponent(r.id)}&token=${encodeURIComponent(r.token)}`}
+function send(s,type,payload){if(s?.readyState===WebSocket.OPEN)s.send(JSON.stringify({protocolVersion:PROTOCOL_VERSION,type,payload}))}
+function broadcast(r,type,payload){for(const s of r.displays)send(s,type,payload)}
+function roomState(r){return{sessionID:r.id,roomCode:r.code,connected:r.controllers.size>0,players:[...r.controllers.values()].map(p=>({id:p.id,name:p.name,club:p.club||"driver"}))}}
+function json(res,obj,status=200){res.writeHead(status,{"Content-Type":"application/json","Cache-Control":"no-store"});res.end(JSON.stringify(obj))}
+function serveStatic(req,res){const p=req.url==="/"?"/index.html":new URL(req.url,"http://localhost").pathname,f=path.normalize(path.join(PUBLIC_DIRECTORY,p));if(!f.startsWith(PUBLIC_DIRECTORY)){res.writeHead(403).end("Forbidden");return}fs.readFile(f,(e,d)=>{if(e){res.writeHead(404).end("Not found");return}const x=path.extname(f),t={".html":"text/html",".js":"text/javascript",".css":"text/css",".jpg":"image/jpeg",".png":"image/png",".svg":"image/svg+xml"};res.writeHead(200,{"Content-Type":`${t[x]||"application/octet-stream"}; charset=utf-8`,"Cache-Control":"no-store"});res.end(d)})}
+const server=http.createServer(async(req,res)=>{res.setHeader("Access-Control-Allow-Origin","*");res.setHeader("Access-Control-Allow-Methods","GET, OPTIONS");if(req.method==="OPTIONS"){res.writeHead(204).end();return}const u=new URL(req.url,`http://${req.headers.host}`);
+if(u.pathname==="/api/session"){const r=makeRoom(),url=pairURL(req,r),qrDataURL=await QRCode.toDataURL(url,{errorCorrectionLevel:"M",margin:2,width:360});json(res,{sessionID:r.id,roomCode:r.code,pairingURL:url,qrDataURL});return}
+if(u.pathname==="/api/join"){const id=codes.get((u.searchParams.get("code")||"").replace(/\D/g,"")),r=rooms.get(id);if(!r){json(res,{error:"Room not found"},404);return}json(res,{sessionID:r.id,token:r.token,roomCode:r.code,pairingURL:pairURL(req,r)});return}
+if(u.pathname==="/api/qr.png"){const r=rooms.get(u.searchParams.get("session"));if(!r){res.writeHead(404).end("Room not found");return}const png=await QRCode.toBuffer(pairURL(req,r),{errorCorrectionLevel:"M",margin:2,width:360,type:"png"});res.writeHead(200,{"Content-Type":"image/png","Cache-Control":"no-store"});res.end(png);return}
+if(u.pathname==="/api/state"){const r=rooms.get(u.searchParams.get("session"));if(!r){json(res,{error:"Room not found"},404);return}json(res,{...roomState(r),...r.latest});return}
+serveStatic(req,res)});
+const wss=new WebSocketServer({noServer:true});
+server.on("upgrade",(req,socket,head)=>{const u=new URL(req.url,`http://${req.headers.host}`),role=u.pathname;if(!["/controller","/display"].includes(role)){socket.destroy();return}const r=rooms.get(u.searchParams.get("session"));if(!r||(role==="/controller"&&u.searchParams.get("token")!==r.token)){socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");socket.destroy();return}wss.handleUpgrade(req,socket,head,ws=>wss.emit("connection",ws,req,{role,room:r}))});
+wss.on("connection",(socket,req,{role,room:r})=>{socket.isAlive=true;socket.on("pong",()=>socket.isAlive=true);
+if(role==="/display"){r.displays.add(socket);send(socket,"displayState",roomState(r));socket.on("close",()=>r.displays.delete(socket));return}
+const player={id:crypto.randomBytes(6).toString("base64url"),name:`Player ${r.nextPlayer++}`,club:"driver",socket};r.controllers.set(player.id,player);
+socket.on("message",b=>{let m;try{m=JSON.parse(b.toString())}catch{return}if(m.protocolVersion!==PROTOCOL_VERSION||!m.type)return;
+if(m.type==="phoneHello"){if(m.payload?.playerName?.trim())player.name=m.payload.playerName.trim().slice(0,24);send(socket,"connectionAccepted",{sessionID:r.id,roomCode:r.code,playerID:player.id,playerName:player.name});broadcast(r,"displayState",roomState(r));return}
+if(m.type==="ping"){send(socket,"pong",m.payload);return}
+if(m.type==="clubSelection")player.club=m.payload.club||player.club;
+if(["livePose","clubSelection","swingStatus","swingResult"].includes(m.type)){const payload={...m.payload,playerID:player.id,playerName:player.name};if(m.type==="livePose")r.latest.latestPose=payload;if(m.type==="clubSelection")r.latest.latestClub=payload;if(m.type==="swingStatus")r.latest.latestSwingStatus=payload;if(m.type==="swingResult")r.latest.latestSwingResult=payload;broadcast(r,m.type,payload);broadcast(r,"displayState",roomState(r))}});
+socket.on("close",()=>{r.controllers.delete(player.id);broadcast(r,"displayState",roomState(r))})});
+setInterval(()=>{for(const s of wss.clients){if(!s.isAlive){s.terminate();continue}s.isAlive=false;s.ping()}},15000);
+server.listen(PORT,"0.0.0.0",()=>console.log(`thegolfgame realtime server: http://localhost:${PORT}`));
