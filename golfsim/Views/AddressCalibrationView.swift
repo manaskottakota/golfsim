@@ -8,13 +8,20 @@ struct AddressCalibrationView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Address Reference").font(.headline)
+                Text("HOLD PHONE UPRIGHT").font(.caption.weight(.bold)).tracking(1.4).foregroundStyle(.white.opacity(0.72))
                 Spacer()
                 stateLabel
             }
-            Text("Hold the phone upright and still, with the screen facing the direction of the swing. The measured quaternion defines heading; gravity only verifies upright tilt.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            Label {
+                Text("Hold the phone upright and still with the screen facing the direction of your swing.")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+            } icon: {
+                Image(systemName: "iphone.gen3")
+                    .font(.title2)
+                    .foregroundStyle(Color(red: 0.47, green: 0.88, blue: 0.58))
+            }
+            .padding(.vertical, 4)
 
             if case .collecting(let progress) = service.state {
                 ProgressView(value: progress)
