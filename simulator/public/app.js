@@ -18,5 +18,21 @@ function handleSwingResult(r){elements.swingStatus.textContent="Swing complete";
 function connectDisplay(id){clearTimeout(reconnectTimer);const scheme=location.protocol==="https:"?"wss":"ws";socket=new WebSocket(`${scheme}://${location.host}/display`);socket.addEventListener("open",()=>console.log("[display] WebSocket connected"));socket.addEventListener("message",e=>{let m;try{m=JSON.parse(e.data)}catch{return}if(m.protocolVersion!==1)return;if(m.type==="displayState"){elements.session.textContent=m.payload.sessionID?.slice(0,8)||id.slice(0,8);setConnectionState(m.payload.connected,m.payload.hasConnected)}else if(m.type==="livePose")handlePose(m.payload);else if(m.type==="clubSelection")selectClub(m.payload.club);else if(m.type==="swingStatus")handleSwingStatus(m.payload);else if(m.type==="swingResult")handleSwingResult(m.payload)});socket.addEventListener("close",()=>{reconnectTimer=setTimeout(()=>connectDisplay(id),1500)});socket.addEventListener("error",e=>{console.error("[display] WebSocket error",e);socket.close()});}
 elements.disconnect.addEventListener("click",()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({protocolVersion:1,type:"disconnectController",payload:{}}));});
 fetch("/api/session").then(r=>{if(!r.ok)throw Error(`Session request failed (${r.status})`);return r.json()}).then(s=>{elements.qr.src=`/api/qr.png?session=${encodeURIComponent(s.sessionID)}&v=${Date.now()}`;elements.pairingURL.textContent=s.pairingURL;elements.session.textContent=s.sessionID.slice(0,8);connectDisplay(s.sessionID)}).catch(e=>{elements.status.textContent=e.message;elements.statusLight.className="status-light disconnected"});
-// Keep connection UI synchronized even while the display WebSocket is reconnecting.
-setInterval(()=>fetch("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(s=>{if(!s)return;elements.session.textContent=s.sessionID?.slice(0,8)||"—";setConnectionState(Boolean(s.connected),Boolean(s.hasConnected));}).catch(()=>{}),1000);
+// Keep the browser synchronized with the Node server even if its display WebSocket
+// is unavailable. This also provides a reliable fallback for live telemetry.
+let lastPolledPoseSequence=null,lastPolledSwingResult=null;
+setInterval(()=>fetch("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(s=>{
+  if(!s)return;
+  elements.session.textContent=s.sessionID?.slice(0,8)||"—";
+  setConnectionState(Boolean(s.connected),Boolean(s.hasConnected));
+  if(s.latestPose&&s.latestPose.sequenceNumber!==lastPolledPoseSequence){
+    lastPolledPoseSequence=s.latestPose.sequenceNumber;
+    handlePose(s.latestPose);
+  }
+  if(s.latestClub)selectClub(s.latestClub.club);
+  if(s.latestSwingStatus)handleSwingStatus(s.latestSwingStatus);
+  if(s.latestSwingResult&&s.latestSwingResult.resultID!==lastPolledSwingResult){
+    lastPolledSwingResult=s.latestSwingResult.resultID;
+    handleSwingResult(s.latestSwingResult);
+  }
+}).catch(e=>console.error("[display] state sync failed",e)),100);
