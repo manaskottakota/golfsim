@@ -18,6 +18,9 @@ struct MainTabView: View {
                     Label("Sensor Lab", systemImage: "waveform.path.ecg")
                 }
         }
+        .tint(Color(red: 0.47, green: 0.88, blue: 0.58))
+        .toolbarBackground(Color(red: 0.025, green: 0.045, blue: 0.035), for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }
 
