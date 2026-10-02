@@ -9,9 +9,11 @@ struct ClubPickerView: View {
     @Bindable var clubSelection: ClubSelectionStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Club")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SELECT CLUB")
+                .font(.caption.weight(.bold))
+                .tracking(1.6)
+                .foregroundStyle(.white.opacity(0.72))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(GolfClub.allCases) { club in
@@ -19,13 +21,14 @@ struct ClubPickerView: View {
                             clubSelection.selectedClub = club
                         } label: {
                             Text(club.shortName)
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(clubSelection.selectedClub == club ? .black : .white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 11)
                                 .background(
                                     clubSelection.selectedClub == club
-                                        ? Color.accentColor.opacity(0.2)
-                                        : Color(.secondarySystemFill),
+                                        ? Color.accentColor
+                                        : Color.white.opacity(0.08),
                                     in: Capsule()
                                 )
                                 .overlay {
@@ -41,9 +44,12 @@ struct ClubPickerView: View {
                 }
             }
             Text(clubSelection.selectedClub.displayName)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
         }
+        .padding(16)
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.10)) }
     }
 }
 
