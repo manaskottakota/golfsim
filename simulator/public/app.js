@@ -70,7 +70,7 @@ function interpretShot(r){
 function rangeYForYards(yards){
   // Match the visual perspective of the labeled range markers. Equal yardage
   // increments compress toward the horizon instead of using a flat pixel scale.
-  const anchors=[[0,635],[50,553],[100,462],[150,385],[200,322],[250,273],[300,238]];
+  const anchors=[[0,635],[50,438],[100,401],[150,381],[200,367],[250,356],[300,351]];
   const y=clamp(yards,0,300);
   for(let i=1;i<anchors.length;i++){
     if(y<=anchors[i][0]){
