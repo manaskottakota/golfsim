@@ -19,6 +19,39 @@ import Testing
     #expect(outcome == .failure(.insufficientMotion))
 }
 
+
+@Test func ignoresSensorGapOutsideIsolatedSwing() throws {
+    var samples = syntheticSwingSamples()
+    for index in 1..<80 {
+        samples[index].motionTimestamp += 0.12
+    }
+    // Restore monotonic timestamps with a single large pre-swing gap.
+    for index in 80..<samples.count {
+        samples[index].motionTimestamp += 0.12
+    }
+    let result = try SwingAnalyzer().analyze(recording: recording(samples), calibration: calibration()).get()
+    #expect(result.metrics.peakRotationalVelocity >= 5)
+}
+
+@Test func acceptsTransitionWithoutDeepMagnitudeValley() throws {
+    let samples = (0..<500).map { index in
+        let time = Double(index) * 0.01
+        let rotation: Double
+        let acceleration: Double
+        switch time {
+        case ..<1.0: (rotation, acceleration) = (0.04, 0.02)
+        case 1.0..<1.9: (rotation, acceleration) = (1.5 + (time - 1.0), 0.20)
+        case 1.9..<2.05: (rotation, acceleration) = (1.35, 0.22)
+        case 2.05..<2.42: (rotation, acceleration) = (2.0 + (time - 2.05) * 8.0, time > 2.33 ? 1.7 : 0.38)
+        case 2.42..<3.1: (rotation, acceleration) = (1.8, 0.20)
+        default: (rotation, acceleration) = (0.05, 0.02)
+        }
+        return sample(time: time, rotation: rotation, acceleration: acceleration)
+    }
+    let result = try SwingAnalyzer().analyze(recording: recording(samples), calibration: calibration()).get()
+    #expect(result.metrics.downswingDuration > 0)
+}
+
 @Test func detectsOrderedSyntheticPhases() throws {
     let outcome = SwingAnalyzer().analyze(recording: recording(syntheticSwingSamples()), calibration: calibration())
     let result = try outcome.get()
