@@ -28,3 +28,5 @@
   #enable-motion,#set-address,.primary{max-width:100%;white-space:normal}
   .status{padding:4px 6px;gap:10px;flex-wrap:wrap}
 }
+
+#join-card p{color:#9caaa1;line-height:1.4}#join-card input{width:100%;box-sizing:border-box;margin-top:9px;padding:14px;border:1px solid var(--border);border-radius:13px;background:#ffffff0c;color:#fff;font:inherit;font-size:16px}#join-room{width:100%;border:0;border-radius:13px;padding:14px;margin-top:9px;font-weight:850;background:var(--green);color:#06100a}#join-error{color:#ff9c9c}.room-code{font-weight:900;letter-spacing:.12em}
