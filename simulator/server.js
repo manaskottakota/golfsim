@@ -102,6 +102,7 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 webSocketServer.on("connection", (socket, request, role) => {
+  console.log(`[ws] ${role === "/controller" ? "iPhone controller" : "browser display"} socket opened`);
   socket.isAlive = true;
   socket.on("pong", () => { socket.isAlive = true; });
 
@@ -145,6 +146,7 @@ webSocketServer.on("connection", (socket, request, role) => {
     }
 
     if (message.type === "phoneHello") {
+      console.log(`[controller] phoneHello from ${message.payload.deviceName || "iPhone"}`);
       if (typeof message.payload.deviceName !== "string" || typeof message.payload.appVersion !== "string") {
         send(socket, "error", { message: "Malformed phoneHello payload." });
         return;
@@ -154,18 +156,24 @@ webSocketServer.on("connection", (socket, request, role) => {
       send(socket, "connectionAccepted", { sessionID: session.id });
       broadcast("phoneHello", message.payload);
       broadcast("displayState", { connected: true, hasConnected: true, sessionID: session.id });
+      console.log("[controller] accepted; telemetry forwarding enabled");
     } else if (message.type === "ping") {
       send(socket, "pong", message.payload);
     } else if (message.type === "disconnect") {
       socket.close(1000, message.payload.reason || "Controller disconnected");
     } else if (["livePose", "clubSelection", "swingStatus", "swingResult", "pong"].includes(message.type)) {
+      if (!session.controllerAccepted) {
+        send(socket, "error", { message: "Send phoneHello before telemetry." });
+        return;
+      }
       broadcast(message.type, message.payload);
     } else {
       send(socket, "error", { message: `Message type ${message.type} is not accepted from a phone.` });
     }
   });
 
-  socket.on("close", () => {
+  socket.on("close", (code, reason) => {
+    console.log(`[controller] socket closed (${code}) ${reason?.toString() || ""}`);
     if (session.controller === socket) {
       session.controller = null;
       session.controllerAccepted = false;
