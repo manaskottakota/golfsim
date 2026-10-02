@@ -13,3 +13,18 @@
   }
   header,.card,.status{width:100%}
 }
+
+/* iPhone portrait: fit every controller element to the viewport. */
+@media (max-width:600px){
+  html,body{width:100%;max-width:100%;overflow-x:hidden}
+  .mobile-shell{width:100%;max-width:100%;margin:0;padding:max(18px,env(safe-area-inset-top)) 12px max(22px,env(safe-area-inset-bottom));gap:12px}
+  header,.card,.status{width:100%;max-width:100%;min-width:0}
+  h1{font-size:clamp(1.65rem,9vw,2.35rem)}
+  .card{padding:16px;overflow:hidden}
+  .clubs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;margin:13px 0 10px;padding:0;gap:8px}
+  .clubs button{min-width:0;width:100%;padding:12px 6px;white-space:normal}
+  .instruction{align-items:flex-start;min-width:0}
+  .instruction p,.swing p{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;font-size:.95rem}
+  #enable-motion,#set-address,.primary{max-width:100%;white-space:normal}
+  .status{padding:4px 6px;gap:10px;flex-wrap:wrap}
+}
